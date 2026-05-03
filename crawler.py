@@ -13,7 +13,7 @@ supabase = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
 KEYWORDS = {
     "자사": ["드림에이지", "DRIMAGE", "아키텍트", "알케론", "arkheron"],
     "경쟁사": ["포트나이트", "리그오브레전드", "롤", "이터널리턴", "배틀그라운드", "PUBG", "발로란트", "Valorant"],
-    "업계": ["모바일게임", "콘솔게임", "스팀", "신작", "게임사", "서비스종료", "PC게임"]
+    "업계": ["모바일게임", "콘솔게임", "스팀", "STEAM", "신작", "게임사", "서비스종료", "PC게임", "사전예약", "런칭"]
 }
 
 HEADERS = {
@@ -140,7 +140,7 @@ def crawl():
     naver_keywords = {
         "자사": ["드림에이지", "아키텍트 게임", "알케론"],
         "경쟁사": ["포트나이트", "이터널리턴", "배틀그라운드", "발로란트"],
-        "업계": ["모바일게임 신작", "게임사 신작", "서비스종료 게임"]
+        "업계": ["모바일게임 신작", "게임사 신작", "서비스종료 게임", "PC게임 런칭", "게임 사전예약"]
     }
     for category, keywords in naver_keywords.items():
         for keyword in keywords:
@@ -172,6 +172,51 @@ def crawl():
                         skipped += 1
                     else:
                         print(f"  ❌ 저장 실패: {e}")
+
+
+    # 네이버 블로그 API
+    naver_blog_keywords = {
+        "자사": ["드림에이지", "아키텍트 게임", "알케론"],
+        "경쟁사": ["포트나이트", "리그오브레전드", "이터널리턴", "배틀그라운드", "발로란트"],
+        "업계": ["모바일게임 신작", "게임 출시"]
+    }
+    for category, keywords in naver_blog_keywords.items():
+        for keyword in keywords:
+            print(f"\n📡 네이버 블로그 - {keyword} 수집 중...")
+            url = "https://openapi.naver.com/v1/search/blog.json"
+            headers = {"X-Naver-Client-Id": naver_id, "X-Naver-Client-Secret": naver_secret}
+            params = {"query": keyword, "display": 10, "sort": "date"}
+            try:
+                import re
+                response = requests.get(url, headers=headers, params=params, timeout=10)
+                items = response.json().get("items", [])
+                print(f"  → {len(items)}개 발견")
+                for item in items:
+                    total += 1
+                    title = re.sub('<[^>]+>', '', item.get("title", ""))
+                    link = item.get("link", "")
+                    description = re.sub('<[^>]+>', '', item.get("description", ""))
+                    published = item.get("postdate", None)
+                    tags = get_tags(title, description)
+                    try:
+                        supabase.table("news").insert({
+                            "title": title,
+                            "url": link,
+                            "summary": description[:500] if description else None,
+                            "source": f"네이버블로그 - {keyword}",
+                            "category": category,
+                            "tags": tags,
+                            "published_at": published,
+                        }).execute()
+                        saved += 1
+                        print(f"  ✅ [{category}] {title[:40]}...")
+                    except Exception as e:
+                        if "duplicate" in str(e).lower() or "unique" in str(e).lower():
+                            skipped += 1
+                        else:
+                            print(f"  ❌ 저장 실패: {e}")
+            except Exception as e:
+                print(f"  ⚠️ 블로그 요청 실패: {e}")
 
     print(f"\n✨ 완료! 총 {total}개 수집 / {saved}개 저장 / {skipped}개 중복 스킵")
 

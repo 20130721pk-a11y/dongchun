@@ -2,13 +2,12 @@ name: Daily News Crawler
 
 on:
   schedule:
-    - cron: '0 0 * * *'  # 매일 오전 9시 (한국시간)
-  workflow_dispatch:  # 수동 실행도 가능
+    - cron: '0 0 * * *'
+  workflow_dispatch:
 
 jobs:
   crawl:
     runs-on: ubuntu-latest
-
     steps:
       - name: 코드 가져오기
         uses: actions/checkout@v3
@@ -21,10 +20,17 @@ jobs:
       - name: 라이브러리 설치
         run: pip install -r requirements.txt
 
-      - name: 크롤러 실행
+      - name: 뉴스 크롤러 실행
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           NAVER_CLIENT_ID: ${{ secrets.NAVER_CLIENT_ID }}
           NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
         run: python3 crawler.py
+
+      - name: 유튜브 크롤러 실행
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+        run: python3 youtube_crawler.py
