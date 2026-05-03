@@ -156,26 +156,49 @@ def crawl_dcinside(keyword):
                 if len(results) >= 100:
                     break
         else:
-            # 경쟁작 키워드는 검색으로
-            encoded = requests.utils.quote(keyword)
-            url = f"https://search.dcinside.com/combine/q/{encoded}"
+            # 경쟁작 키워드는 마이너갤 직접 크롤링
+            GALL_IDS = {
+                '포트나이트': 'fortnite',
+                '발로란트': 'valorant',
+                '배틀그라운드': 'pubg',
+                '이터널리턴': 'eternalreturn',
+                '리그오브레전드': 'leagueoflegends',
+            }
+            gall_id = GALL_IDS.get(keyword)
+            if not gall_id:
+                return results
             from bs4 import BeautifulSoup
-            response = requests.get(url, headers=HEADERS, timeout=10)
-            soup = BeautifulSoup(response.text, 'html.parser')
-            links = soup.find_all('a', href=True)
-            seen = set()
             for page in range(1, 4):
-                url = f"https://search.dcinside.com/combine/q/{encoded}/p/{page}"
+                url = f"https://gall.dcinside.com/mgallery/board/lists/?id={gall_id}&page={page}"
                 response = requests.get(url, headers=HEADERS, timeout=10)
                 soup = BeautifulSoup(response.text, 'html.parser')
-                links = soup.find_all('a', href=True)
-                for a in links:
-                    href = a.get('href', '')
-                    title = a.get_text(strip=True)
-                    if keyword in title and len(title) > 5 and href not in seen:
-                        if 'gall.dcinside.com' in href or 'dcinside.com' in href:
-                            seen.add(href)
-                            results.append({'title': title[:100], 'url': href, 'posted_at': None, 'views': 0, 'comments': 0})
+                items = soup.select('tr.ub-content')
+                if not items:
+                    items = soup.select('tbody tr')
+                for item in items:
+                    title_tag = item.select_one('td.gall_tit a')
+                    if not title_tag:
+                        continue
+                    title = title_tag.get_text(strip=True)
+                    href = title_tag.get('href', '')
+                    if not href.startswith('http'):
+                        href = 'https://gall.dcinside.com' + href
+                    view_tag = item.select_one('td.gall_count')
+                    views = int(view_tag.get_text(strip=True).replace(',', '').replace('-', '0') or 0) if view_tag else 0
+                    comment_tag = item.select_one('td.gall_comment')
+                    comments = int(comment_tag.get_text(strip=True).replace(',', '').replace('-', '0') or 0) if comment_tag else 0
+                    date_tag = item.select_one('td.gall_date')
+                    posted_at_raw = date_tag.get('title', date_tag.get_text(strip=True)) if date_tag else None
+                    try:
+                        if posted_at_raw and len(posted_at_raw) == 8 and '/' in posted_at_raw:
+                            parts = posted_at_raw.split('/')
+                            posted_at = f"20{parts[0]}-{parts[1]}-{parts[2]}"
+                        else:
+                            posted_at = posted_at_raw
+                    except:
+                        posted_at = None
+                    if title and len(title) > 2:
+                        results.append({'title': title[:100], 'url': href, 'posted_at': posted_at, 'views': views, 'comments': comments})
                 if len(results) >= 100:
                     break
         for page in range(1, 4):
