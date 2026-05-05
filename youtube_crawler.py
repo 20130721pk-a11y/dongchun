@@ -34,7 +34,7 @@ def is_game_related(title, summary=""):
         return True
     return any(kw.lower() in text for kw in GAME_KEYWORDS)
 
-def search_youtube(keyword, max_results=10):
+def search_youtube(keyword, max_results=10, live_only=False):
     url = "https://www.googleapis.com/youtube/v3/search"
     params = {
         "part": "snippet",
@@ -46,6 +46,8 @@ def search_youtube(keyword, max_results=10):
         "relevanceLanguage": "ko",
         "key": YOUTUBE_API_KEY,
     }
+    if live_only:
+        params["eventType"] = "live"
     try:
         response = requests.get(url, params=params, timeout=10)
         return response.json().get("items", [])
@@ -57,6 +59,7 @@ def crawl_youtube():
     print(f"\n🎥 유튜브 크롤링 시작: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
     total, saved, skipped = 0, 0, 0
 
+    # 일반 영상 수집
     for category, keywords in KEYWORDS.items():
         for keyword in keywords:
             print(f"\n📡 유튜브 - {keyword} 수집 중...")
@@ -95,6 +98,54 @@ def crawl_youtube():
                     saved += 1
                     live_tag = "🔴 LIVE " if is_live else ""
                     print(f"  ✅ [{category}] {live_tag}{title[:40]}...")
+                except Exception as e:
+                    if "duplicate" in str(e).lower() or "unique" in str(e).lower():
+                        skipped += 1
+                    else:
+                        print(f"  ❌ 저장 실패: {e}")
+
+    # 라이브 방송 수집
+    live_keywords = {
+        "자사": ["드림에이지 게임", "알케론 게임", "아키텍트 게임"],
+        "경쟁사": ["포트나이트", "발로란트", "배틀그라운드", "이터널리턴", "리그오브레전드"],
+        "업계": ["게임 라이브", "신작 게임"]
+    }
+    for category, keywords in live_keywords.items():
+        for keyword in keywords:
+            print(f"\n📡 유튜브 라이브 - {keyword} 수집 중...")
+            items = search_youtube(keyword, max_results=10, live_only=True)
+            print(f"  → {len(items)}개 발견")
+            for item in items:
+                total += 1
+                snippet = item.get("snippet", {})
+                video_id = item.get("id", {}).get("videoId", "")
+                title = snippet.get("title", "")
+                channel = snippet.get("channelTitle", "")
+                thumbnail = snippet.get("thumbnails", {}).get("medium", {}).get("url", "")
+                published = snippet.get("publishedAt", None)
+                url = f"https://www.youtube.com/watch?v={video_id}"
+                tags = []
+                for kws in KEYWORDS.values():
+                    for kw in kws:
+                        if kw.lower() in title.lower():
+                            tags.append(kw)
+                if not is_game_related(title):
+                    skipped += 1
+                    continue
+                try:
+                    supabase.table("streams").insert({
+                        "title": title,
+                        "channel_name": channel,
+                        "platform": "유튜브",
+                        "url": url,
+                        "thumbnail": thumbnail,
+                        "category": category,
+                        "tags": tags,
+                        "is_live": True,
+                        "started_at": published,
+                    }).execute()
+                    saved += 1
+                    print(f"  ✅ [🔴LIVE] {title[:40]}...")
                 except Exception as e:
                     if "duplicate" in str(e).lower() or "unique" in str(e).lower():
                         skipped += 1
