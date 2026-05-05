@@ -131,7 +131,8 @@ def crawl():
 
             if hasattr(entry, 'published_parsed') and entry.published_parsed:
                 try:
-                    published = datetime(*entry.published_parsed[:6]).isoformat()
+                    from datetime import timezone
+                    published = datetime(*entry.published_parsed[:6], tzinfo=timezone.utc).isoformat()
                 except:
                     pass
 
@@ -176,7 +177,15 @@ def crawl():
                 title = re.sub('<[^>]+>', '', item.get("title", ""))
                 url = item.get("link", "")
                 summary = re.sub('<[^>]+>', '', item.get("description", ""))
-                published = item.get("pubDate", None)
+                pubdate_raw = item.get("pubDate", None)
+                if pubdate_raw:
+                    try:
+                        from email.utils import parsedate_to_datetime
+                        published = parsedate_to_datetime(pubdate_raw).isoformat()
+                    except:
+                        published = pubdate_raw
+                else:
+                    published = None
                 tags = get_tags(title, summary)
                 try:
                     supabase.table("news").insert({
