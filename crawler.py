@@ -79,11 +79,18 @@ GAME_KEYWORDS = [
     "인벤", "루리웹", "gaming", "game"
 ]
 
+def is_korean(text):
+    korean_chars = len([c for c in text if '가' <= c <= '힣'])
+    total_chars = len([c for c in text if c.strip()])
+    return total_chars == 0 or (korean_chars / total_chars) >= 0.2
+
 def is_game_related(title, summary=""):
+    if not is_korean(title):
+        return False
     text = (title + " " + (summary or "")).lower()
-    # 자사 키워드는 무조건 통과
-    own_keywords = ["드림에이지", "알케론", "아키텍트", "arkheron", "drimage"]
-    if any(kw.lower() in text for kw in own_keywords):
+    if "드림에이지" in text or "알케론" in text or "arkheron" in text or "drimage" in text:
+        return True
+    if "아키텍트" in text and any(kw in text for kw in ["게임", "mmorpg", "rpg", "pvp", "모바일", "크로스플랫폼", "심연", "쟁"]):
         return True
     return any(kw.lower() in text for kw in GAME_KEYWORDS)
 
