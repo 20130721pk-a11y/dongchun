@@ -90,7 +90,7 @@ def crawl_soop(keyword, category):
         print(f"  ⚠️ SOOP 요청 실패: {e}")
         return []
 
-def save_stream(title, channel, platform, url, thumbnail, category, is_live, tags):
+def save_stream(title, channel, platform, url, thumbnail, category, is_live, tags, viewer_count=0):
     try:
         supabase.table("streams").insert({
             "title": title,
@@ -102,6 +102,7 @@ def save_stream(title, channel, platform, url, thumbnail, category, is_live, tag
             "tags": tags,
             "is_live": is_live,
             "started_at": datetime.now().isoformat(),
+            "viewer_count": viewer_count,
         }).execute()
         return True
     except Exception as e:
@@ -131,7 +132,8 @@ def crawl():
                 if not is_game_related(title):
                     skipped += 1
                     continue
-                if save_stream(title, channel, "치지직", stream_url, thumbnail, category, is_live, tags):
+                viewer_count = item.get("viewers", 0)
+                if save_stream(title, channel, "치지직", stream_url, thumbnail, category, is_live, tags, viewer_count):
                     saved += 1
                     print(f"  ✅ [🔴LIVE] {title[:40]}...")
                 else:
