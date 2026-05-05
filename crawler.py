@@ -64,6 +64,25 @@ def search_naver_news(keyword, client_id, client_secret, display=10):
         print(f"  ⚠️ 네이버 요청 실패: {e}")
         return []
 
+
+GAME_KEYWORDS = [
+    "게임", "게이머", "게임사", "플레이", "출시", "업데이트", "패치", "서버",
+    "캐릭터", "아이템", "스킬", "퀘스트", "pvp", "pve", "rpg", "fps", "moba",
+    "mmorpg", "모바일게임", "스팀", "콘솔", "pc방", "e스포츠", "esports",
+    "대회", "시즌", "배틀", "테스트", "베타", "알파", "얼리액세스", "정식출시",
+    "서비스종료", "섭종", "신작", "런칭", "게임쇼", "지스타", "gdc", "tgs",
+    "개발사", "퍼블리셔", "스튜디오", "드림에이지", "알케론", "아키텍트",
+    "포트나이트", "발로란트", "배틀그라운드", "pubg", "valorant", "fortnite",
+    "이터널리턴", "리그오브레전드", "lol", "롤", "스팀", "steam",
+    "닌텐도", "플레이스테이션", "xbox", "블리자드", "넥슨", "엔씨소프트",
+    "넷마블", "크래프톤", "카카오게임즈", "위메이드", "컴투스", "게임빌",
+    "인벤", "루리웹", "gaming", "game"
+]
+
+def is_game_related(title, summary=""):
+    text = (title + " " + (summary or "")).lower()
+    return any(kw.lower() in text for kw in GAME_KEYWORDS)
+
 def get_category(title, summary=""):
     text = (title + " " + (summary or "")).lower()
     for category, keywords in KEYWORDS.items():

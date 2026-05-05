@@ -17,6 +17,21 @@ HEADERS = {
     "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 }
 
+
+GAME_KEYWORDS = [
+    "게임", "게이머", "게임사", "플레이", "출시", "업데이트", "패치", "서버",
+    "캐릭터", "아이템", "스킬", "pvp", "pve", "rpg", "fps", "moba",
+    "mmorpg", "모바일게임", "스팀", "콘솔", "pc방", "e스포츠", "esports",
+    "대회", "시즌", "배틀", "테스트", "베타", "신작", "런칭", "섭종",
+    "드림에이지", "알케론", "아키텍트", "포트나이트", "발로란트",
+    "배틀그라운드", "pubg", "valorant", "fortnite", "이터널리턴",
+    "리그오브레전드", "lol", "steam", "gaming", "game", "gameplay"
+]
+
+def is_game_related(title, summary=""):
+    text = (title + " " + (summary or "")).lower()
+    return any(kw.lower() in text for kw in GAME_KEYWORDS)
+
 def analyze_sentiment(title, content=""):
     try:
         text = f"제목: {title}\n내용: {content[:300] if content else ''}"
@@ -325,6 +340,9 @@ def crawl():
             print(f"  → {len(posts)}개 발견")
             for post in posts:
                 total += 1
+                if not is_game_related(post['title']):
+                    skipped += 1
+                    continue
                 success, sentiment = save_post(
                     post['title'], "", post['url'], community,
                     post['views'], post['comments'], keyword, post['posted_at']
