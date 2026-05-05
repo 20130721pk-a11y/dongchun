@@ -31,6 +31,10 @@ GAME_KEYWORDS = [
 
 def is_game_related(title, summary=""):
     text = (title + " " + (summary or "")).lower()
+    # 자사 키워드는 무조건 통과
+    own_keywords = ["드림에이지", "알케론", "아키텍트", "arkheron", "drimage"]
+    if any(kw.lower() in text for kw in own_keywords):
+        return True
     return any(kw.lower() in text for kw in GAME_KEYWORDS)
 
 def get_tags(title):
@@ -42,17 +46,36 @@ def get_tags(title):
     return found
 
 def crawl_chzzk(keyword, category):
-    url = "https://api.chzzk.naver.com/service/v1/search/lives"
-    params = {"keyword": keyword, "size": 10}
     headers = {**HEADERS, "Origin": "https://chzzk.naver.com", "Referer": "https://chzzk.naver.com"}
+    results = []
     try:
+        # 키워드 검색으로 라이브 수집
+        url = "https://api.chzzk.naver.com/service/v1/search/lives"
+        params = {"keyword": keyword, "size": 20}
         response = requests.get(url, params=params, headers=headers, timeout=10)
         data = response.json()
         items = data.get("content", {}).get("data", [])
-        return items
+        for item in items:
+            live = item.get("live", item)
+            channel = item.get("channel", {})
+            title = live.get("liveTitle", "")
+            live_id = live.get("liveId", "")
+            channel_id = channel.get("channelId", live.get("channel", {}).get("channelId", ""))
+            thumbnail = live.get("liveImageUrl", "").replace("{type}", "480")
+            stream_url = f"https://chzzk.naver.com/live/{channel_id}" if channel_id else ""
+            channel_name = channel.get("channelName", live.get("channel", {}).get("channelName", ""))
+            concurrent = live.get("concurrentUserCount", 0)
+            results.append({
+                "title": title,
+                "channel": channel_name,
+                "url": stream_url,
+                "thumbnail": thumbnail,
+                "is_live": True,
+                "viewers": concurrent
+            })
     except Exception as e:
         print(f"  ⚠️ 치지직 요청 실패: {e}")
-        return []
+    return results
 
 def crawl_soop(keyword, category):
     url = "https://vod.sooplive.co.kr/ajax/search_video_list.php"
@@ -99,22 +122,18 @@ def crawl():
             print(f"  → {len(items)}개 발견")
             for item in items:
                 total += 1
-                live_info = item.get("liveInfo", {})
-                channel_info = item.get("channel", {})
-                title = live_info.get("liveTitle", "")
-                channel = channel_info.get("channelName", "")
-                live_id = live_info.get("liveId", "")
-                channel_id = channel_info.get("channelId", "")
-                thumbnail = live_info.get("liveThumbnailImageUrl", "")
-                stream_url = f"https://chzzk.naver.com/live/{channel_id}"
-                is_live = live_info.get("status") == "OPEN"
+                title = item.get("title", "")
+                channel = item.get("channel", "")
+                stream_url = item.get("url", "")
+                thumbnail = item.get("thumbnail", "")
+                is_live = item.get("is_live", True)
                 tags = get_tags(title)
                 if not is_game_related(title):
                     skipped += 1
                     continue
                 if save_stream(title, channel, "치지직", stream_url, thumbnail, category, is_live, tags):
                     saved += 1
-                    print(f"  ✅ [{'🔴LIVE' if is_live else 'VOD'}] {title[:40]}...")
+                    print(f"  ✅ [🔴LIVE] {title[:40]}...")
                 else:
                     skipped += 1
 

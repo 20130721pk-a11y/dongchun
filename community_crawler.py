@@ -30,6 +30,10 @@ GAME_KEYWORDS = [
 
 def is_game_related(title, summary=""):
     text = (title + " " + (summary or "")).lower()
+    # 자사 키워드는 무조건 통과
+    own_keywords = ["드림에이지", "알케론", "아키텍트", "arkheron", "drimage"]
+    if any(kw.lower() in text for kw in own_keywords):
+        return True
     return any(kw.lower() in text for kw in GAME_KEYWORDS)
 
 def analyze_sentiment(title, content=""):
