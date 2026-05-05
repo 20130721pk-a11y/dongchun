@@ -228,7 +228,15 @@ def crawl():
                     title = re.sub('<[^>]+>', '', item.get("title", ""))
                     link = item.get("link", "")
                     description = re.sub('<[^>]+>', '', item.get("description", ""))
-                    published = item.get("postdate", None)
+                    postdate_raw = item.get("postdate", None)
+                    if postdate_raw and len(postdate_raw) == 8:
+                        try:
+                            from datetime import timezone
+                            published = datetime(int(postdate_raw[:4]), int(postdate_raw[4:6]), int(postdate_raw[6:8]), tzinfo=timezone.utc).isoformat()
+                        except:
+                            published = None
+                    else:
+                        published = postdate_raw
                     tags = get_tags(title, description)
                     try:
                         supabase.table("news").insert({
