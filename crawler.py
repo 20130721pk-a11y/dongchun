@@ -4,6 +4,7 @@ from datetime import datetime
 from dotenv import load_dotenv
 from supabase import create_client
 import os
+import re
 import urllib.parse
 
 load_dotenv()
@@ -20,6 +21,9 @@ HEADERS = {
     "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 }
 
+# 게임 전문 미디어 소스 (이 소스는 필터 없이 통과)
+TRUSTED_GAME_SOURCES = ["인벤", "루리웹"]
+
 def make_google_news_url(keyword):
     encoded = urllib.parse.quote(keyword)
     return f"https://news.google.com/rss/search?q={encoded}&hl=ko&gl=KR&ceid=KR:ko"
@@ -34,7 +38,6 @@ SOURCES = [
     {"name": "Google News - 발로란트", "url": make_google_news_url("발로란트")},
     {"name": "Google News - 모바일게임", "url": make_google_news_url("모바일게임 신작")},
     {"name": "Google News - 게임업계", "url": make_google_news_url("게임사 신작")},
-
     {"name": "네이버 - 드림에이지", "url": "https://search.naver.com/rss.naver?where=news&query=%EB%93%9C%EB%A6%BC%EC%97%90%EC%9D%B4%EC%A7%80"},
     {"name": "네이버 - 아키텍트게임", "url": "https://search.naver.com/rss.naver?where=news&query=%EC%95%84%ED%82%A4%ED%85%8D%ED%8A%B8+%EA%B2%8C%EC%9E%84"},
     {"name": "네이버 - 알케론", "url": "https://search.naver.com/rss.naver?where=news&query=%EC%95%8C%EC%BC%80%EB%A1%A0"},
@@ -47,7 +50,6 @@ SOURCES = [
     {"name": "인벤", "url": "https://www.inven.co.kr/rss/news.php"},
     {"name": "루리웹", "url": "https://bbs.ruliweb.com/news/rss"},
 ]
-
 
 def search_naver_news(keyword, client_id, client_secret, display=10):
     url = "https://openapi.naver.com/v1/search/news.json"
@@ -64,35 +66,69 @@ def search_naver_news(keyword, client_id, client_secret, display=10):
         print(f"  ⚠️ 네이버 요청 실패: {e}")
         return []
 
-
-GAME_KEYWORDS = [
-    "게임", "게이머", "게임사", "플레이", "출시", "업데이트", "패치", "서버",
-    "캐릭터", "아이템", "스킬", "퀘스트", "pvp", "pve", "rpg", "fps", "moba",
-    "mmorpg", "모바일게임", "스팀", "콘솔", "pc방", "e스포츠", "esports",
-    "대회", "시즌", "배틀", "테스트", "베타", "알파", "얼리액세스", "정식출시",
-    "서비스종료", "섭종", "신작", "런칭", "게임쇼", "지스타", "gdc", "tgs",
-    "개발사", "퍼블리셔", "스튜디오", "드림에이지", "알케론",
-    "포트나이트", "발로란트", "배틀그라운드", "pubg", "valorant", "fortnite",
-    "이터널리턴", "리그오브레전드", "lol", "롤", "스팀", "steam",
-    "닌텐도", "플레이스테이션", "xbox", "블리자드", "넥슨", "엔씨소프트",
-    "넷마블", "크래프톤", "카카오게임즈", "위메이드", "컴투스", "게임빌",
+# 게임 전용 키워드 (범용 단어 제외)
+GAME_SPECIFIC_KEYWORDS = [
+    # 게임 장르/형식
+    "게임", "게이머", "게임사", "모바일게임", "온라인게임", "인디게임",
+    "pvp", "pve", "rpg", "fps", "moba", "mmorpg", "배틀로얄",
+    "pc방", "e스포츠", "esports",
+    # 게임 액션
+    "패치노트", "핫픽스", "얼리액세스", "오픈베타", "cbt", "obt",
+    "서비스종료", "섭종", "게임쇼", "지스타", "gdc", "tgs",
+    "게임런칭", "게임출시", "신작게임",
+    # 게임 콘텐츠
+    "캐릭터", "아이템", "스킬", "퀘스트", "레이드", "던전",
+    "시즌패스", "배틀패스", "게임패치",
+    # 자사 고유
+    "드림에이지", "알케론", "arkheron", "drimage",
+    # 경쟁사 고유 (게임 이름)
+    "포트나이트", "발로란트", "배틀그라운드", "이터널리턴",
+    "리그오브레전드", "pubg", "valorant", "fortnite",
+    # 게임 회사
+    "넥슨", "엔씨소프트", "넷마블", "크래프톤", "카카오게임즈",
+    "위메이드", "컴투스", "스마일게이트", "펄어비스",
+    "블리자드", "라이엇", "에픽게임즈",
+    "닌텐도", "플레이스테이션", "xbox",
+    # 게임 미디어
     "인벤", "루리웹", "gaming", "game"
 ]
 
-def is_korean(text):
-    korean_chars = len([c for c in text if '가' <= c <= '힣'])
-    total_chars = len([c for c in text if c.strip()])
-    return total_chars == 0 or (korean_chars / total_chars) >= 0.2
+# 게임과 무관한 키워드가 제목에 있으면 제외
+NON_GAME_BLOCKLIST = [
+    "모니터 추천", "이어폰 추천", "헤드셋 추천", "노트북 추천", "pc 추천",
+    "가성비", "수리", "출장수리", "부품", "파워서플라이",
+    "부동산", "아파트", "분양", "청약",
+    "주식", "코인", "투자", "펀드", "etf",
+    "맛집", "카페", "식당", "레스토랑",
+    "화장품", "뷰티", "스킨케어",
+    "여행", "호텔", "리조트",
+    "자동차", "전기차", "suv",
+    "영어 공부", "자격증", "인턴십",
+    "쿠키", "과자", "음식",
+]
 
-def is_game_related(title, summary=""):
-    if not is_korean(title):
-        return False
+def is_game_related(title, summary="", source_name=""):
+    # 신뢰할 수 있는 게임 전문 소스는 통과
+    if any(trusted in source_name for trusted in TRUSTED_GAME_SOURCES):
+        return True
+
     text = (title + " " + (summary or "")).lower()
-    if "드림에이지" in text or "알케론" in text or "arkheron" in text or "drimage" in text:
+    title_lower = title.lower()
+
+    # 비게임 키워드가 제목에 있으면 차단
+    if any(block in title_lower for block in NON_GAME_BLOCKLIST):
+        return False
+
+    # 자사 고유 키워드는 바로 통과
+    if any(kw in text for kw in ["드림에이지", "알케론", "arkheron", "drimage"]):
         return True
-    if "아키텍트" in text and any(kw in text for kw in ["게임", "mmorpg", "rpg", "pvp", "모바일", "크로스플랫폼", "심연", "쟁", "드림에이지", "알케론", "arkheron"]):
-        return True
-    return any(kw.lower() in text for kw in GAME_KEYWORDS)
+
+    # 아키텍트는 게임 맥락 필수
+    if "아키텍트" in text:
+        return any(kw in text for kw in ["게임", "mmorpg", "rpg", "pvp", "모바일", "드림에이지", "알케론", "크로스플랫폼"])
+
+    # 게임 전용 키워드 포함 여부
+    return any(kw in text for kw in GAME_SPECIFIC_KEYWORDS)
 
 def get_category(title, summary=""):
     text = (title + " " + (summary or "")).lower()
@@ -122,8 +158,9 @@ def parse_feed(url):
 
 def crawl():
     print(f"\n🚀 크롤링 시작: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
-    total, saved, skipped = 0, 0, 0
+    total, saved, skipped, filtered = 0, 0, 0, 0
 
+    # RSS 피드 수집
     for source in SOURCES:
         print(f"\n📡 {source['name']} 수집 중...")
         entries = parse_feed(source["url"])
@@ -143,8 +180,9 @@ def crawl():
                 except:
                     pass
 
-            if not is_game_related(title, summary):
-                skipped += 1
+            # 게임 관련 여부 필터링
+            if not is_game_related(title, summary, source["name"]):
+                filtered += 1
                 continue
 
             category, _ = get_category(title, summary)
@@ -168,7 +206,6 @@ def crawl():
                 else:
                     print(f"  ❌ 저장 실패: {e}")
 
-
     # 네이버 뉴스 API
     naver_id = os.getenv("NAVER_CLIENT_ID")
     naver_secret = os.getenv("NAVER_CLIENT_SECRET")
@@ -179,12 +216,11 @@ def crawl():
     }
     for category, keywords in naver_keywords.items():
         for keyword in keywords:
-            print(f"\n📡 네이버 - {keyword} 수집 중...")
+            print(f"\n📡 네이버 뉴스 - {keyword} 수집 중...")
             items = search_naver_news(keyword, naver_id, naver_secret)
             print(f"  → {len(items)}개 발견")
             for item in items:
                 total += 1
-                import re
                 title = re.sub('<[^>]+>', '', item.get("title", ""))
                 url = item.get("link", "")
                 summary = re.sub('<[^>]+>', '', item.get("description", ""))
@@ -197,9 +233,11 @@ def crawl():
                         published = pubdate_raw
                 else:
                     published = None
+
                 if not is_game_related(title, summary):
-                    skipped += 1
+                    filtered += 1
                     continue
+
                 tags = get_tags(title, summary)
                 try:
                     supabase.table("news").insert({
@@ -219,7 +257,6 @@ def crawl():
                     else:
                         print(f"  ❌ 저장 실패: {e}")
 
-
     # 네이버 블로그 API
     naver_blog_keywords = {
         "자사": ["드림에이지", "아키텍트 게임", "알케론"],
@@ -233,7 +270,6 @@ def crawl():
             headers = {"X-Naver-Client-Id": naver_id, "X-Naver-Client-Secret": naver_secret}
             params = {"query": keyword, "display": 10, "sort": "date"}
             try:
-                import re
                 response = requests.get(url, headers=headers, params=params, timeout=10)
                 items = response.json().get("items", [])
                 print(f"  → {len(items)}개 발견")
@@ -251,9 +287,11 @@ def crawl():
                             published = None
                     else:
                         published = postdate_raw
+
                     if not is_game_related(title, description):
-                        skipped += 1
+                        filtered += 1
                         continue
+
                     tags = get_tags(title, description)
                     try:
                         supabase.table("news").insert({
@@ -275,8 +313,7 @@ def crawl():
             except Exception as e:
                 print(f"  ⚠️ 블로그 요청 실패: {e}")
 
-    print(f"\n✨ 완료! 총 {total}개 수집 / {saved}개 저장 / {skipped}개 중복 스킵")
+    print(f"\n✨ 완료! 총 {total}개 수집 / {saved}개 저장 / {skipped}개 중복 / {filtered}개 필터링")
 
 if __name__ == "__main__":
     crawl()
-
