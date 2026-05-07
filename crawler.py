@@ -71,7 +71,7 @@ GAME_KEYWORDS = [
     "mmorpg", "모바일게임", "스팀", "콘솔", "pc방", "e스포츠", "esports",
     "대회", "시즌", "배틀", "테스트", "베타", "알파", "얼리액세스", "정식출시",
     "서비스종료", "섭종", "신작", "런칭", "게임쇼", "지스타", "gdc", "tgs",
-    "개발사", "퍼블리셔", "스튜디오", "드림에이지", "알케론", "아키텍트",
+    "개발사", "퍼블리셔", "스튜디오", "드림에이지", "알케론",
     "포트나이트", "발로란트", "배틀그라운드", "pubg", "valorant", "fortnite",
     "이터널리턴", "리그오브레전드", "lol", "롤", "스팀", "steam",
     "닌텐도", "플레이스테이션", "xbox", "블리자드", "넥슨", "엔씨소프트",
@@ -90,7 +90,7 @@ def is_game_related(title, summary=""):
     text = (title + " " + (summary or "")).lower()
     if "드림에이지" in text or "알케론" in text or "arkheron" in text or "drimage" in text:
         return True
-    if "아키텍트" in text and any(kw in text for kw in ["게임", "mmorpg", "rpg", "pvp", "모바일", "크로스플랫폼", "심연", "쟁"]):
+    if "아키텍트" in text and any(kw in text for kw in ["게임", "mmorpg", "rpg", "pvp", "모바일", "크로스플랫폼", "심연", "쟁", "드림에이지", "알케론", "arkheron"]):
         return True
     return any(kw.lower() in text for kw in GAME_KEYWORDS)
 
@@ -143,6 +143,10 @@ def crawl():
                 except:
                     pass
 
+            if not is_game_related(title, summary):
+                skipped += 1
+                continue
+
             category, _ = get_category(title, summary)
             tags = get_tags(title, summary)
 
@@ -193,6 +197,9 @@ def crawl():
                         published = pubdate_raw
                 else:
                     published = None
+                if not is_game_related(title, summary):
+                    skipped += 1
+                    continue
                 tags = get_tags(title, summary)
                 try:
                     supabase.table("news").insert({
@@ -244,6 +251,9 @@ def crawl():
                             published = None
                     else:
                         published = postdate_raw
+                    if not is_game_related(title, description):
+                        skipped += 1
+                        continue
                     tags = get_tags(title, description)
                     try:
                         supabase.table("news").insert({
