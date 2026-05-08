@@ -127,6 +127,9 @@ NON_GAME_BLOCKLIST = [
     "쿠키", "과자", "음식", "배달",
     # 의료/건강
     "병원", "의원", "약국", "건강기능식품",
+    # 게이밍 PC 상업
+    "게이밍 컴퓨터", "조립 pc", "조립pc", "사양 추천", "갓성비 pc",
+    "듀얼하드", "게이밍pc 추천", "컴퓨터 견적", "pc 견적",
 ]
 
 def is_blog_title_game_related(title, keyword):
