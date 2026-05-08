@@ -69,7 +69,7 @@ def crawl_youtube():
     for category, keywords in KEYWORDS.items():
         for keyword in keywords:
             print(f"\n📡 유튜브 - {keyword} 수집 중...")
-            items = search_youtube(keyword)
+            items = search_youtube(keyword, max_results=50)
             print(f"  → {len(items)}개 발견")
 
             for item in items:
@@ -112,14 +112,13 @@ def crawl_youtube():
 
     # 라이브 방송 수집
     live_keywords = {
-        "자사": ["드림에이지 게임", "알케론 게임", "아키텍트 게임"],
+        "자사": ["드림에이지 게임", "알케론 게임", "드림에이지 아키텍트"],
         "경쟁사": ["포트나이트", "발로란트", "배틀그라운드", "이터널리턴", "리그오브레전드"],
-        "업계": ["게임 라이브", "신작 게임"]
     }
     for category, keywords in live_keywords.items():
         for keyword in keywords:
             print(f"\n📡 유튜브 라이브 - {keyword} 수집 중...")
-            items = search_youtube(keyword, max_results=10, live_only=True)
+            items = search_youtube(keyword, max_results=50, live_only=True)
             print(f"  → {len(items)}개 발견")
             for item in items:
                 total += 1
