@@ -10,9 +10,8 @@ supabase = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")
 
 KEYWORDS = {
-    "자사": ["드림에이지", "아키텍트", "알케론"],
+    "자사": ["드림에이지", "알케론", "arkheron", "드림에이지 아키텍트"],
     "경쟁사": ["포트나이트", "리그오브레전드", "이터널리턴", "배틀그라운드", "발로란트"],
-    "업계": ["모바일게임 신작", "게임 출시", "게임 사전예약"],
 }
 
 
