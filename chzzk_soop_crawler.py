@@ -12,17 +12,23 @@ KEYWORDS = {
     "경쟁사": ["포트나이트", "리그오브레전드", "이터널리턴", "배틀그라운드", "발로란트"],
 }
 
+
+SEGMENT_ALIASES = {
+    "드림에이지":    ["드림에이지", "drimage", "dream age"],
+    "알케론":        ["알케론", "arkheron"],
+    "아키텍트":      ["아키텍트", "드림에이지 아키텍트"],
+    "포트나이트":    ["포트나이트", "fortnite"],
+    "리그오브레전드":["리그오브레전드", "리그 오브 레전드", "league of legends", "lol", "롤"],
+    "이터널리턴":    ["이터널리턴", "이터널 리턴", "eternal return", "eternalreturn", "블랙서바이벌"],
+    "배틀그라운드":  ["배틀그라운드", "pubg", "battlegrounds", "배그"],
+    "발로란트":      ["발로란트", "valorant"],
+}
+
+
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 }
 
-def get_tags(title):
-    found = []
-    for keywords in KEYWORDS.values():
-        for kw in keywords:
-            if kw.lower() in title.lower():
-                found.append(kw)
-    return found
 
 def crawl_chzzk(keyword, category):
     """페이지네이션으로 최대 100개 수집"""
