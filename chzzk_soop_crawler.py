@@ -116,7 +116,13 @@ def crawl():
                 thumbnail = item.get("thumbnail", "")
                 viewer_count = item.get("viewers", 0)
                 tags = get_tags(title)
-                # 이미 키워드로 검색했으므로 is_game_related 필터 불필요
+                # 검색 키워드의 정식 세그먼트명을 태그에 강제 추가
+                for seg, aliases in SEGMENT_ALIASES.items():
+                    if keyword.lower() in [a.lower() for a in aliases]:
+                        if seg not in tags: tags.append(seg)
+                        break
+                else:
+                    if keyword not in tags: tags.append(keyword)
                 if save_stream(title, channel, "치지직", stream_url, thumbnail, category, True, tags, viewer_count):
                     saved += 1
                     print(f"  ✅ [🔴LIVE] {title[:40]}...")

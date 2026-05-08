@@ -83,11 +83,13 @@ def crawl_youtube():
                 url = f"https://www.youtube.com/watch?v={video_id}"
                 is_live = snippet.get("liveBroadcastContent") == "live"
 
-                tags = []
-                for kws in KEYWORDS.values():
-                    for kw in kws:
-                        if kw.lower() in title.lower():
-                            tags.append(kw)
+                tags = get_tags(title)
+                for seg, aliases in SEGMENT_ALIASES.items():
+                    if keyword.lower() in [a.lower() for a in aliases]:
+                        if seg not in tags: tags.append(seg)
+                        break
+                else:
+                    if keyword not in tags: tags.append(keyword)
 
                 try:
                     supabase.table("streams").insert({
