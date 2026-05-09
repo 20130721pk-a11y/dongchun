@@ -43,7 +43,20 @@ def is_game_related(title, summary=""):
         return True
     return any(kw.lower() in text for kw in GAME_KEYWORDS)
 
+POSITIVE_WORDS = ['좋다','재밌','훌륭','기대','추천','최고','멋지','즐겁','재미있','기대작','흥미','완성도','칭찬','대박','갓겜','꿀잼','만족','기대이상','업데이트','신작기대']
+NEGATIVE_WORDS = ['별로','최악','망했','실망','환불','버그','오류','망겜','탈주','불만','싫다','구리','쓰레기','노답','최하','악성','핵버그','최저','운영','현질','과금','접속오류','서버터짐','밸런스','핵','사기']
+
+def analyze_sentiment_rule(title, content=""):
+    text = (title + " " + content).lower()
+    pos = sum(1 for w in POSITIVE_WORDS if w in text)
+    neg = sum(1 for w in NEGATIVE_WORDS if w in text)
+    if pos > neg: return '긍정', '긍정적 표현 감지'
+    if neg > pos: return '부정', '부정적 표현 감지'
+    return '중립', '중립적 내용'
+
 def analyze_sentiment(title, content=""):
+    # 먼저 규칙 기반으로 빠르게 분석
+    rule_result = analyze_sentiment_rule(title, content)
     try:
         text = f"제목: {title}\n내용: {content[:300] if content else ''}"
         response = requests.post(
@@ -64,10 +77,12 @@ def analyze_sentiment(title, content=""):
             timeout=15
         )
         result = response.json()
+        if result.get("error"):
+            return rule_result
         parsed = json.loads(result["content"][0]["text"])
-        return parsed.get("sentiment", "중립"), parsed.get("reason", "")
+        return parsed.get("sentiment", rule_result[0]), parsed.get("reason", rule_result[1])
     except:
-        return "중립", ""
+        return rule_result
 
 def save_post(title, content, url, community, views, comments, keyword, posted_at):
     sentiment, reason = analyze_sentiment(title, content)
@@ -194,6 +209,20 @@ def crawl_dcinside(keyword):
             }
             gall_id = GALL_IDS.get(keyword)
             if not gall_id:
+                # 전용 갤러리 없는 키워드는 검색 사용
+                try:
+                    search_url = f"https://search.dcinside.com/post/p/1/q/{requests.utils.quote(keyword)}"
+                    response = requests.get(search_url, headers=HEADERS, timeout=10)
+                    soup = BeautifulSoup(response.text, 'html.parser')
+                    items = soup.select('.sch_result_txt')
+                    for item in items[:30]:
+                        title_tag = item.select_one('a')
+                        if not title_tag: continue
+                        title = title_tag.get_text(strip=True)
+                        href = title_tag.get('href','')
+                        if title and len(title) > 2:
+                            results.append({'title':title[:100],'url':href,'posted_at':None,'views':0,'comments':0})
+                except: pass
                 return results
             from bs4 import BeautifulSoup
             for page in range(1, 4):
