@@ -10,7 +10,7 @@ supabase = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")
 
 KEYWORDS = {
-    "자사": ["드림에이지", "알케론", "arkheron", "드림에이지 아키텍트"],
+    "자사": ["드림에이지", "알케론", "arkheron"],
     "경쟁사": ["포트나이트", "리그오브레전드", "이터널리턴", "배틀그라운드", "발로란트", "오버워치2", "에이펙스 레전드"],
     "업계": ['신작', '런칭', '사전예약', '얼리액세스', '지스타', '배틀로얄 신작', 'MMORPG 신작', '게임스컴', '도쿄게임쇼', 'GDC', '크로스플랫폼 게임', '스팀 인기 게임'],
 }
@@ -92,6 +92,9 @@ def crawl_youtube():
                 else:
                     if keyword not in tags: tags.append(keyword)
 
+                if not is_game_related(title):
+                    skipped += 1
+                    continue
                 try:
                     supabase.table("streams").insert({
                         "title": title,
