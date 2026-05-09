@@ -183,12 +183,12 @@ def crawl_ruliweb(keyword):
             if ('read' in href or '/news/' in href) and title and len(title) > 5 and href not in seen:
                 if keyword.lower() in title.lower():
                     seen.add(href)
-                    from datetime import datetime as dt
-                try:
-                    posted_at = dt.now().isoformat()
-                except:
-                    posted_at = None
-                results.append({'title': title[:100], 'url': href, 'posted_at': posted_at, 'views': 0, 'comments': 0})
+                    try:
+                        from datetime import datetime as dt
+                        posted_at = dt.now().isoformat()
+                    except:
+                        posted_at = None
+                    results.append({'title': title[:100], 'url': href, 'posted_at': posted_at, 'views': 0, 'comments': 0})
             if len(results) >= 100:
                 break
     except Exception as e:
@@ -342,7 +342,7 @@ def crawl_naver_cafe(keyword):
         client_secret = os.getenv("NAVER_CLIENT_SECRET")
         url = "https://openapi.naver.com/v1/search/cafearticle.json"
         headers = {**HEADERS, "X-Naver-Client-Id": client_id, "X-Naver-Client-Secret": client_secret}
-        params = {"query": keyword, "display": 1000, "sort": "date"}
+        params = {"query": keyword, "display": 100, "sort": "date"}
         response = requests.get(url, headers=headers, params=params, timeout=10)
         items = response.json().get("items", [])
         import re
