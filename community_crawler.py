@@ -11,7 +11,7 @@ load_dotenv()
 
 supabase = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
 
-KEYWORDS = ["알케론", "arkheron", "Arkheron", "포트나이트", "이터널리턴", "배틀그라운드", "발로란트", "리그오브레전드"]
+KEYWORDS = ["드림에이지", "알케론", "arkheron", "아키텍트", "포트나이트", "이터널리턴", "배틀그라운드", "발로란트", "리그오브레전드", "오버워치2", "에이펙스 레전드"]
 
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
@@ -189,6 +189,8 @@ def crawl_dcinside(keyword):
                 '배틀그라운드': 'pubg',
                 '이터널리턴': 'eternalreturn',
                 '리그오브레전드': 'leagueoflegends',
+                '오버워치2': 'overwatch',
+                '에이펙스 레전드': 'apexlegends',
             }
             gall_id = GALL_IDS.get(keyword)
             if not gall_id:
