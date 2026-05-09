@@ -471,7 +471,8 @@ def crawl():
         ("디시인사이드", crawl_dcinside),
         ("네이버카페", crawl_naver_cafe),
         ("아카라이브", crawl_arcalive),
-        ("디스이즈게임", crawl_thisisgame),
+        ("에펨코리아", crawl_fmkorea),
+        ("네이트판", crawl_nate),
     ]
 
     for keyword in KEYWORDS:
