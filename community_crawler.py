@@ -379,6 +379,65 @@ def crawl_arcalive(keyword):
         print(f"  ⚠️ 아카라이브 실패: {e}")
     return results
 
+
+def crawl_fmkorea(keyword):
+    print(f"\n📡 에펨코리아 - {keyword} 수집 중...")
+    results = []
+    try:
+        encoded = requests.utils.quote(keyword)
+        url = f"https://www.fmkorea.com/search.php?mid=home&act=IS&is_keyword={encoded}"
+        response = requests.get(url, headers=HEADERS, timeout=10)
+        soup = BeautifulSoup(response.text, 'html.parser')
+        seen = set()
+        for a in soup.find_all('a', href=True):
+            title = a.get_text(strip=True)
+            href = a.get('href', '')
+            if keyword.lower() in title.lower() and len(title) > 5 and href not in seen:
+                if 'fmkorea.com' in href or href.startswith('/'):
+                    full_url = href if href.startswith('http') else f"https://www.fmkorea.com{href}"
+                    seen.add(href)
+                    results.append({'title': title[:100], 'url': full_url, 'posted_at': None, 'views': 0, 'comments': 0})
+            if len(results) >= 50:
+                break
+    except Exception as e:
+        print(f"  ⚠️ 에펨코리아 실패: {e}")
+    return results
+
+
+def crawl_nate(keyword):
+    print(f"\n📡 네이트판 - {keyword} 수집 중...")
+    results = []
+    try:
+        encoded = requests.utils.quote(keyword)
+        url = f"https://pann.nate.com/search/talk?q={encoded}"
+        response = requests.get(url, headers=HEADERS, timeout=10)
+        soup = BeautifulSoup(response.text, 'html.parser')
+        seen = set()
+        items = soup.select('a[href*="/talk/"]')
+        for a in items:
+            title = a.get_text(strip=True)
+            href = a.get('href', '')
+            if keyword.lower() in title.lower() and len(title) > 5 and href not in seen:
+                full_url = href if href.startswith('http') else f"https://pann.nate.com{href}"
+                seen.add(href)
+                # 조회수/댓글 파싱 시도
+                parent = a.find_parent('li') or a.find_parent('div')
+                views = 0
+                comments = 0
+                if parent:
+                    spans = parent.find_all('span')
+                    for span in spans:
+                        txt = span.get_text(strip=True).replace(',', '')
+                        if txt.isdigit():
+                            views = int(txt)
+                            break
+                results.append({'title': title[:100], 'url': full_url, 'posted_at': None, 'views': views, 'comments': comments})
+            if len(results) >= 50:
+                break
+    except Exception as e:
+        print(f"  ⚠️ 네이트판 실패: {e}")
+    return results
+
 def crawl_thisisgame(keyword):
     print(f"\n📡 디스이즈게임 - {keyword} 수집 중...")
     results = []
