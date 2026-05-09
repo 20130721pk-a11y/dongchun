@@ -90,7 +90,7 @@ def save_stream(title, channel, platform, url, thumbnail, category, is_live, tag
             "category": category,
             "tags": tags,
             "is_live": is_live,
-            "started_at": datetime.now().isoformat(),
+            "started_at": live.get("openDate") or live.get("liveStartDate") or datetime.now().isoformat(),
             "viewer_count": viewer_count,
         }).execute()
         return True

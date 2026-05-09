@@ -13,6 +13,30 @@ supabase = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
 
 KEYWORDS = ["드림에이지", "알케론", "arkheron", "아키텍트", "포트나이트", "이터널리턴", "배틀그라운드", "발로란트", "리그오브레전드", "오버워치2", "에이펙스 레전드"]
 
+
+def parse_date_safe(date_str):
+    """다양한 날짜 형식을 ISO yyyy-mm-dd 로 변환"""
+    if not date_str:
+        return None
+    try:
+        s = str(date_str).strip()
+        # YYYYMMDD
+        if len(s) == 8 and s.isdigit():
+            return f"{s[:4]}-{s[4:6]}-{s[6:]}"
+        # yyyy.mm.dd or yyyy/mm/dd
+        import re
+        m = re.search(r'(20\d{2})[./\-](\d{1,2})[./\-](\d{1,2})', s)
+        if m:
+            return f"{m.group(1)}-{m.group(2).zfill(2)}-{m.group(3).zfill(2)}"
+        # mm.dd (올해)
+        m2 = re.search(r'^(\d{1,2})\.(\d{1,2})\.?$', s)
+        if m2:
+            from datetime import datetime
+            return f"{datetime.now().year}-{m2.group(1).zfill(2)}-{m2.group(2).zfill(2)}"
+        return None
+    except:
+        return None
+
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 }
@@ -349,7 +373,7 @@ def crawl_naver_cafe(keyword):
         for item in items:
             title = re.sub('<[^>]+>', '', item.get("title", ""))
             link = item.get("link", "")
-            posted_at = item.get("postdate", None)
+            posted_at = parse_date_safe(item.get("postdate", None))
             results.append({'title': title, 'url': link, 'posted_at': posted_at, 'views': 0, 'comments': 0})
     except Exception as e:
         print(f"  ⚠️ 네이버 카페 실패: {e}")
@@ -396,7 +420,19 @@ def crawl_fmkorea(keyword):
                 if 'fmkorea.com' in href or href.startswith('/'):
                     full_url = href if href.startswith('http') else f"https://www.fmkorea.com{href}"
                     seen.add(href)
-                    results.append({'title': title[:100], 'url': full_url, 'posted_at': None, 'views': 0, 'comments': 0})
+                    try:
+                        parent = a.find_parent('li') or a.find_parent('tr') or a.find_parent('div')
+                        date_text = None
+                        if parent:
+                            for cls in ['time', 'date', 'regdate', 'datetime']:
+                                dt_el = parent.find(class_=cls) or parent.find('time')
+                                if dt_el:
+                                    date_text = dt_el.get('datetime') or dt_el.get_text(strip=True)
+                                    break
+                        posted_at = parse_date_safe(date_text)
+                    except:
+                        posted_at = None
+                    results.append({'title': title[:100], 'url': full_url, 'posted_at': posted_at, 'views': 0, 'comments': 0})
             if len(results) >= 50:
                 break
     except Exception as e:
