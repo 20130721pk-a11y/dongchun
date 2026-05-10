@@ -10,7 +10,7 @@ supabase = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
 KEYWORDS = {
     "자사": ["드림에이지", "알케론", "arkheron", "아키텍트"],
     "경쟁사": ["포트나이트", "리그오브레전드", "이터널리턴", "배틀그라운드", "발로란트", "오버워치2", "에이펙스 레전드"],
-    "업계": ['신작', '런칭', '사전예약', '얼리액세스', '지스타', '배틀로얄 신작', 'MMORPG 신작', '게임스컴', '도쿄게임쇼', 'GDC', '크로스플랫폼 게임', '스팀 인기 게임'],
+
 }
 
 
@@ -63,7 +63,7 @@ def crawl_chzzk(keyword, category):
                 channel = item.get("channel", {})
                 title = live.get("liveTitle", "")
                 channel_id = channel.get("channelId", live.get("channel", {}).get("channelId", ""))
-                thumbnail = live.get("liveImageUrl", "").replace("{type}", "480")
+                thumbnail = (live.get("liveImageUrl") or "").replace("{type}", "480")
                 stream_url = f"https://chzzk.naver.com/live/{channel_id}" if channel_id else ""
                 channel_name = channel.get("channelName", live.get("channel", {}).get("channelName", ""))
                 concurrent = live.get("concurrentUserCount", 0)
@@ -73,7 +73,8 @@ def crawl_chzzk(keyword, category):
                     "url": stream_url,
                     "thumbnail": thumbnail,
                     "is_live": True,
-                    "viewers": concurrent
+                    "viewers": concurrent,
+                    "started_at": live.get("openDate") or live.get("liveStartDate") or datetime.now().isoformat()
                 })
 
             # 다음 페이지 여부 확인
@@ -88,7 +89,7 @@ def crawl_chzzk(keyword, category):
 
     return results
 
-def save_stream(title, channel, platform, url, thumbnail, category, is_live, tags, viewer_count=0):
+def save_stream(title, channel, platform, url, thumbnail, category, is_live, tags, viewer_count=0, started_at=None):
     try:
         supabase.table("streams").insert({
             "title": title,
@@ -99,7 +100,7 @@ def save_stream(title, channel, platform, url, thumbnail, category, is_live, tag
             "category": category,
             "tags": tags,
             "is_live": is_live,
-            "started_at": live.get("openDate") or live.get("liveStartDate") or datetime.now().isoformat(),
+            "started_at": started_at or datetime.now().isoformat(),
             "viewer_count": viewer_count,
         }).execute()
         return True
@@ -133,7 +134,7 @@ def crawl():
                         break
                 else:
                     if keyword not in tags: tags.append(keyword)
-                if save_stream(title, channel, "치지직", stream_url, thumbnail, category, True, tags, viewer_count):
+                if save_stream(title, channel, "치지직", stream_url, thumbnail, category, True, tags, viewer_count, item.get("started_at")):
                     saved += 1
                     print(f"  ✅ [🔴LIVE] {title[:40]}...")
                 else:
