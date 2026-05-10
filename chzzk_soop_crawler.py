@@ -31,6 +31,15 @@ HEADERS = {
 }
 
 
+def get_tags(title, summary=""):
+    text = (title + " " + (summary or "")).lower()
+    found = []
+    for keywords in KEYWORDS.values():
+        for kw in keywords:
+            if kw.lower() in text:
+                found.append(kw)
+    return found
+
 def crawl_chzzk(keyword, category):
     """페이지네이션으로 최대 100개 수집"""
     headers = {**HEADERS, "Origin": "https://chzzk.naver.com", "Referer": "https://chzzk.naver.com"}
@@ -111,8 +120,8 @@ def crawl():
             print(f"  → {len(items)}개 발견")
             for item in items:
                 total += 1
-                title = item.get("title", "")
-                channel = item.get("channel", "")
+                title = item.get("title", "") or ""
+                channel = item.get("channel", "") or ""
                 stream_url = item.get("url", "")
                 thumbnail = item.get("thumbnail", "")
                 viewer_count = item.get("viewers", 0)

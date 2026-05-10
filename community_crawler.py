@@ -366,7 +366,7 @@ def crawl_naver_cafe(keyword):
         client_secret = os.getenv("NAVER_CLIENT_SECRET")
         url = "https://openapi.naver.com/v1/search/cafearticle.json"
         headers = {**HEADERS, "X-Naver-Client-Id": client_id, "X-Naver-Client-Secret": client_secret}
-        params = {"query": keyword, "display": 100, "sort": "date"}
+        params = {"query": keyword, "display": 100, "sort": "date", "start": 1}
         response = requests.get(url, headers=headers, params=params, timeout=10)
         items = response.json().get("items", [])
         import re

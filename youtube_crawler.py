@@ -2,7 +2,7 @@ import requests
 import os
 from dotenv import load_dotenv
 from supabase import create_client
-from datetime import datetime
+from datetime import datetime, timedelta
 
 load_dotenv()
 
@@ -61,6 +61,15 @@ def search_youtube(keyword, max_results=10, live_only=False):
     except Exception as e:
         print(f"  ⚠️ 유튜브 요청 실패: {e}")
         return []
+
+def get_tags(title, summary=""):
+    text = (title + " " + (summary or "")).lower()
+    found = []
+    for keywords in KEYWORDS.values():
+        for kw in keywords:
+            if kw.lower() in text:
+                found.append(kw)
+    return found
 
 def crawl_youtube():
     print(f"\n🎥 유튜브 크롤링 시작: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
