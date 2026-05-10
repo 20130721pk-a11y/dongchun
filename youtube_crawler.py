@@ -62,6 +62,18 @@ def search_youtube(keyword, max_results=10, live_only=False):
         print(f"  ⚠️ 유튜브 요청 실패: {e}")
         return []
 
+
+SEGMENT_ALIASES = {
+    "드림에이지":    ["드림에이지", "drimage", "dream age"],
+    "알케론":        ["알케론", "arkheron"],
+    "아키텍트":      ["아키텍트", "드림에이지 아키텍트"],
+    "포트나이트":    ["포트나이트", "fortnite"],
+    "리그오브레전드":["리그오브레전드", "league of legends", "lol", "롤"],
+    "이터널리턴":    ["이터널리턴", "eternal return", "블랙서바이벌"],
+    "배틀그라운드":  ["배틀그라운드", "pubg", "배그"],
+    "발로란트":      ["발로란트", "valorant"],
+}
+
 def get_tags(title, summary=""):
     text = (title + " " + (summary or "")).lower()
     found = []
