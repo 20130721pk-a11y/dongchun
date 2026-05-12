@@ -11,7 +11,7 @@ load_dotenv()
 
 supabase = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
 
-KEYWORDS = ["드림에이지", "알케론", "arkheron", "아키텍트", "포트나이트", "이터널리턴", "배틀그라운드", "발로란트", "리그오브레전드", "오버워치2", "에이펙스 레전드"]
+KEYWORDS = ["드림에이지", "알케론", "arkheron", "드림에이지 아키텍트", "포트나이트", "이터널리턴", "배틀그라운드", "발로란트", "리그오브레전드", "오버워치2", "에이펙스 레전드"]
 
 
 def parse_date_safe(date_str):
@@ -47,7 +47,7 @@ GAME_KEYWORDS = [
     "캐릭터", "아이템", "스킬", "pvp", "pve", "rpg", "fps", "moba",
     "mmorpg", "모바일게임", "스팀", "콘솔", "pc방", "e스포츠", "esports",
     "대회", "시즌", "배틀", "테스트", "베타", "신작", "런칭", "섭종",
-    "드림에이지", "알케론", "아키텍트", "포트나이트", "발로란트",
+    "드림에이지", "알케론", "포트나이트", "발로란트",
     "배틀그라운드", "pubg", "valorant", "fortnite", "이터널리턴",
     "리그오브레전드", "lol", "steam", "gaming", "game", "gameplay"
 ]
