@@ -325,7 +325,7 @@ def crawl():
                     else:
                         published = postdate_raw
 
-                    if not is_game_related(title, description):
+                    if not is_blog_title_game_related(title, keyword) or not is_game_related(title, description):
                         filtered += 1
                         continue
 

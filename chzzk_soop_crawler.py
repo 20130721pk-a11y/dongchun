@@ -8,7 +8,7 @@ load_dotenv()
 supabase = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
 
 KEYWORDS = {
-    "자사": ["드림에이지", "알케론", "arkheron", "아키텍트"],
+    "자사": ["드림에이지", "알케론", "arkheron", "드림에이지 아키텍트"],
     "경쟁사": ["포트나이트", "리그오브레전드", "이터널리턴", "배틀그라운드", "발로란트", "오버워치2", "에이펙스 레전드"],
 
 }
