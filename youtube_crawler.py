@@ -41,26 +41,37 @@ def is_game_related(title, summary=""):
         return True
     return any(kw.lower() in text for kw in GAME_KEYWORDS)
 
-def search_youtube(keyword, max_results=10, live_only=False):
+def search_youtube(keyword, max_results=50, live_only=False, max_pages=3):
     url = "https://www.googleapis.com/youtube/v3/search"
-    params = {
-        "part": "snippet",
-        "q": keyword,
-        "type": "video",
-        "order": "date",
-        "maxResults": max_results,
-        "regionCode": "KR",
-        "relevanceLanguage": "ko",
-        "key": YOUTUBE_API_KEY,
-    }
-    if live_only:
-        params["eventType"] = "live"
-    try:
-        response = requests.get(url, params=params, timeout=10)
-        return response.json().get("items", [])
-    except Exception as e:
-        print(f"  ⚠️ 유튜브 요청 실패: {e}")
-        return []
+    all_items = []
+    next_page_token = None
+    for _ in range(max_pages):
+        params = {
+            "part": "snippet",
+            "q": keyword,
+            "type": "video",
+            "order": "date",
+            "maxResults": 50,
+            "regionCode": "KR",
+            "relevanceLanguage": "ko",
+            "key": YOUTUBE_API_KEY,
+        }
+        if live_only:
+            params["eventType"] = "live"
+        if next_page_token:
+            params["pageToken"] = next_page_token
+        try:
+            response = requests.get(url, params=params, timeout=10)
+            data = response.json()
+            items = data.get("items", [])
+            all_items.extend(items)
+            next_page_token = data.get("nextPageToken")
+            if not next_page_token or len(items) < 50:
+                break
+        except Exception as e:
+            print(f"  ⚠️ 유튜브 요청 실패: {e}")
+            break
+    return all_items
 
 
 SEGMENT_ALIASES = {
@@ -139,7 +150,7 @@ def crawl_youtube():
 
     # 라이브 방송 수집
     live_keywords = {
-        "자사": ["드림에이지 게임", "알케론 게임", "드림에이지 아키텍트"],
+        "자사": ["드림에이지", "알케론", "arkheron", "드림에이지 아키텍트"],
         "경쟁사": ["포트나이트", "발로란트", "배틀그라운드", "이터널리턴", "리그오브레전드", "오버워치2", "에이펙스 레전드"],
         "업계": ['신작', '런칭', '사전예약', '얼리액세스', '지스타', '배틀로얄 신작', 'MMORPG 신작', '게임스컴', '도쿄게임쇼', 'GDC', '크로스플랫폼 게임', '스팀 인기 게임'],
     }
