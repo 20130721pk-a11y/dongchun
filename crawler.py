@@ -58,7 +58,7 @@ SOURCES = [
     {"name": "루리웹", "url": "https://bbs.ruliweb.com/news/rss"},
 ]
 
-def search_naver_news(keyword, client_id, client_secret, display=10):
+def search_naver_news(keyword, client_id, client_secret, display=100):
     url = "https://openapi.naver.com/v1/search/news.json"
     headers = {
         "X-Naver-Client-Id": client_id,
@@ -310,7 +310,7 @@ def crawl():
             print(f"\n📡 네이버 블로그 - {keyword} 수집 중...")
             url = "https://openapi.naver.com/v1/search/blog.json"
             headers = {"X-Naver-Client-Id": naver_id, "X-Naver-Client-Secret": naver_secret}
-            params = {"query": keyword, "display": 10, "sort": "date"}
+            params = {"query": keyword, "display": 100, "sort": "date"}
             try:
                 response = requests.get(url, headers=headers, params=params, timeout=10)
                 items = response.json().get("items", [])
