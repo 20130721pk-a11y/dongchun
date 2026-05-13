@@ -11,7 +11,34 @@ load_dotenv()
 
 supabase = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
 
-KEYWORDS = ["드림에이지", "알케론", "arkheron", "드림에이지 아키텍트", "포트나이트", "이터널리턴", "배틀그라운드", "발로란트", "리그오브레전드", "오버워치2", "에이펙스 레전드"]
+KEYWORDS = {
+    "자사": [
+        "드림에이지",
+        "알케론",
+        "arkheron",
+        "Arkheron",
+        "아키텍트",
+        "드림에이지 아키텍트",
+    ],
+    "경쟁사": [
+        "포트나이트",
+        "이터널리턴",
+        "배틀그라운드",
+        "발로란트",
+        "리그오브레전드",
+        "오버워치2",
+        "에이펙스 레전드",
+    ],
+}
+
+def get_category(keyword):
+    for category, kw_list in KEYWORDS.items():
+        if keyword in kw_list:
+            return category
+    return "기타"
+
+def get_all_keywords():
+    return KEYWORDS["자사"] + KEYWORDS["경쟁사"]
 
 
 def parse_date_safe(date_str):
@@ -147,7 +174,7 @@ def analyze_sentiment(title, content=""):
     except:
         return rule_result
 
-def save_post(title, content, url, community, views, comments, keyword, posted_at):
+def save_post(title, content, url, community, views, comments, keyword, posted_at, category):
     sentiment, reason = analyze_sentiment(title, content)
     try:
         supabase.table("community_posts").insert({
@@ -160,6 +187,7 @@ def save_post(title, content, url, community, views, comments, keyword, posted_a
             "sentiment": sentiment,
             "sentiment_reason": reason,
             "keyword": keyword,
+            "category": category,
             "posted_at": posted_at,
         }).execute()
         return True, sentiment
@@ -509,9 +537,12 @@ def crawl():
         ("아카라이브", crawl_arcalive),
         ("에펨코리아", crawl_fmkorea),
         ("네이트판", crawl_nate),
+        ("디스이즈게임", crawl_thisisgame),
     ]
 
-    for keyword in KEYWORDS:
+    for keyword in get_all_keywords():
+        category = get_category(keyword)
+        print(f"\n[{category}] 키워드: {keyword}")
         for community, crawler in crawlers:
             posts = crawler(keyword)
             print(f"  → {len(posts)}개 발견")
@@ -522,11 +553,12 @@ def crawl():
                     continue
                 success, sentiment = save_post(
                     post['title'], "", post['url'], community,
-                    post['views'], post['comments'], keyword, post['posted_at']
+                    post['views'], post['comments'], keyword, post['posted_at'],
+                    category
                 )
                 if success:
                     saved += 1
-                    print(f"  ✅ [{sentiment}] {post['title'][:40]}...")
+                    print(f"  ✅ [{category}][{sentiment}] {post['title'][:40]}...")
                 else:
                     skipped += 1
                 time.sleep(0.3)
