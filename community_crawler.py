@@ -551,7 +551,7 @@ def crawl_thisisgame(keyword):
         print(f"  ⚠️ 디스이즈게임 실패: {e}")
     return results
 
-def is_recent(posted_at, hours=48):
+def is_recent(posted_at, hours=72):
     if not posted_at:
         return True
     try:
