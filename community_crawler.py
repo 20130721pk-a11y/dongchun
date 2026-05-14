@@ -84,10 +84,36 @@ def is_korean(text):
     total_chars = len([c for c in text if c.strip()])
     return total_chars == 0 or (korean_chars / total_chars) >= 0.2
 
+NON_GAME_BLOCKLIST = [
+    "중고 컴퓨터","컴퓨터 매입","pc 수거","컴퓨터 수거","노트북 매입",
+    "모니터 추천","이어폰 추천","헤드셋 추천","노트북 추천","pc 추천",
+    "그래픽카드 추천","cpu 추천","ram 추천","ssd 추천",
+    "파워서플라이","컴퓨터 조립","pc 조립","수리","출장수리","부품",
+    "갤럭시","아이폰","스마트폰 추천","태블릿 추천","아이패드","갤럭시탭",
+    "주가","주식","코인","투자","펀드","etf","매입","수거",
+    "부동산","아파트","분양","청약","대출",
+    "맛집","카페","식당","레스토랑","화장품","뷰티","스킨케어",
+    "여행","호텔","리조트","자동차","전기차","suv",
+    "영어 공부","자격증","인턴십","쿠키","과자","음식","배달",
+    "병원","의원","약국","건강기능식품",
+    "게이밍 컴퓨터","조립 pc","조립pc","사양 추천","갓성비 pc",
+    "게이밍pc 추천","컴퓨터 견적","pc 견적",
+    "게이밍과 업무","게이밍 및 업무","업무 효율","업무용 pc",
+    "razer","바라쿠다","로지텍","스틸시리즈","커세어","하이퍼엑스",
+    "헤드셋 리뷰","이어폰 리뷰","키보드 리뷰","마우스 리뷰",
+    "고사양 컴퓨터","컴퓨터 본체","게이밍 본체","본체 추천",
+    "최적화 컴퓨터","최적화 pc","고사양 pc","고성능 pc",
+    "pc방 창업","컴퓨터 임대","렌탈","할부",
+    "쿠팡","11번가","지마켓","옥션","네이버쇼핑",
+]
+
 def is_game_related(title, summary=""):
     if not is_korean(title):
         return False
     text = (title + " " + (summary or "")).lower()
+    title_lower = title.lower()
+    if any(block in title_lower for block in NON_GAME_BLOCKLIST):
+        return False
     if "드림에이지" in text or "알케론" in text or "arkheron" in text or "drimage" in text:
         return True
     if "아키텍트" in text and any(kw in text for kw in ["게임", "mmorpg", "rpg", "pvp", "모바일", "크로스플랫폼", "심연", "쟁"]):
