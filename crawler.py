@@ -198,6 +198,20 @@ def parse_feed(url):
         print(f"  ⚠️ 요청 실패: {e}")
         return []
 
+def is_recent(published_iso, hours=48):
+    """published_at이 최근 N시간 이내인지 확인"""
+    if not published_iso:
+        return True  # 날짜 없으면 통과 (알 수 없으므로)
+    try:
+        from datetime import timezone, timedelta
+        pub = datetime.fromisoformat(published_iso.replace("Z", "+00:00"))
+        if pub.tzinfo is None:
+            pub = pub.replace(tzinfo=timezone.utc)
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
+        return pub >= cutoff
+    except:
+        return True  # 파싱 실패 시 통과
+
 def crawl():
     print(f"\n🚀 크롤링 시작: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
     total, saved, skipped, filtered = 0, 0, 0, 0
@@ -224,6 +238,11 @@ def crawl():
 
             # 게임 관련 여부 필터링
             if not is_game_related(title, summary, source["name"]):
+                filtered += 1
+                continue
+
+            # 48시간 이내 기사만 수집
+            if not is_recent(published):
                 filtered += 1
                 continue
 
@@ -275,6 +294,11 @@ def crawl():
                         published = pubdate_raw
                 else:
                     published = None
+
+                # 48시간 이내 기사만 수집
+                if not is_recent(published):
+                    filtered += 1
+                    continue
 
                 if not is_game_related(title, summary):
                     filtered += 1
