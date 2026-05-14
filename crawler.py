@@ -142,7 +142,7 @@ def is_blog_title_game_related(title, keyword):
     """블로그는 제목에 게임 관련 키워드가 직접 포함되어야 함"""
     title_lower = title.lower()
     # 검색 키워드가 제목에 있어야 함
-    if keyword.lower() in title_lower:
+    if keyword and keyword.lower() in title_lower:
         return True
     # 게임 전문 용어가 제목에 있어야 함
     game_title_keywords = [
