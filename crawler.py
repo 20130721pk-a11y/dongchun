@@ -131,6 +131,11 @@ NON_GAME_BLOCKLIST = [
     # 게이밍 주변기기 브랜드 광고
     "razer", "바라쿠다", "로지텍", "스틸시리즈", "커세어", "하이퍼엑스",
     "헤드셋 리뷰", "이어폰 리뷰", "키보드 리뷰", "마우스 리뷰",
+    # PC 광고 패턴
+    "고사양 컴퓨터", "컴퓨터 본체", "게이밍 본체", "본체 추천",
+    "최적화 컴퓨터", "최적화 pc", "고사양 pc", "고성능 pc",
+    "pc방 창업", "컴퓨터 임대", "렌탈", "할부",
+    "쿠팡", "11번가", "지마켓", "옥션", "네이버쇼핑",
 ]
 
 def is_blog_title_game_related(title, keyword):
@@ -160,6 +165,10 @@ def is_game_related(title, summary="", source_name=""):
     # 비게임 키워드가 제목에 있으면 차단
     if any(block in title_lower for block in NON_GAME_BLOCKLIST):
         return False
+
+    # 블로그 URL이면 더 엄격한 필터 적용
+    if "blog.naver.com" in source_name or "blog.naver.com" in title.lower():
+        return is_blog_title_game_related(title, "")
 
     # 자사 고유 키워드는 바로 통과
     if any(kw in text for kw in ["드림에이지", "알케론", "arkheron", "drimage"]):
@@ -300,7 +309,8 @@ def crawl():
                     filtered += 1
                     continue
 
-                if not is_game_related(title, summary):
+                url_source = "blog.naver.com" if "blog.naver.com" in url else ""
+                if not is_game_related(title, summary, url_source):
                     filtered += 1
                     continue
 
