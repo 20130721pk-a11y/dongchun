@@ -553,7 +553,7 @@ def crawl_thisisgame(keyword):
 
 def is_recent(posted_at, hours=72):
     if not posted_at:
-        return True
+        return False
     try:
         from datetime import timezone, timedelta
         pub = datetime.fromisoformat(str(posted_at).replace("Z", "+00:00"))
@@ -589,7 +589,7 @@ def crawl():
                 if not is_game_related(post['title']):
                     skipped += 1
                     continue
-                if not is_recent(post.get('posted_at')):
+                if community != '네이트판' and not is_recent(post.get('posted_at')):
                     skipped += 1
                     continue
                 success, sentiment = save_post(
