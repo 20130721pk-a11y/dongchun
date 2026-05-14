@@ -525,6 +525,18 @@ def crawl_thisisgame(keyword):
         print(f"  ⚠️ 디스이즈게임 실패: {e}")
     return results
 
+def is_recent(posted_at, hours=48):
+    if not posted_at:
+        return True
+    try:
+        from datetime import timezone, timedelta
+        pub = datetime.fromisoformat(str(posted_at).replace("Z", "+00:00"))
+        if pub.tzinfo is None:
+            pub = pub.replace(tzinfo=timezone.utc)
+        return pub >= datetime.now(timezone.utc) - timedelta(hours=hours)
+    except:
+        return True
+
 def crawl():
     print(f"\n🔍 커뮤니티 크롤링 시작: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
     total, saved, skipped = 0, 0, 0
@@ -549,6 +561,9 @@ def crawl():
             for post in posts:
                 total += 1
                 if not is_game_related(post['title']):
+                    skipped += 1
+                    continue
+                if not is_recent(post.get('posted_at')):
                     skipped += 1
                     continue
                 success, sentiment = save_post(
