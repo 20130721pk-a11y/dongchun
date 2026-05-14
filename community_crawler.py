@@ -175,7 +175,7 @@ def analyze_sentiment(title, content=""):
         return rule_result
 
 def save_post(title, content, url, community, views, comments, keyword, posted_at, category):
-    sentiment, reason = analyze_sentiment(title, content)
+    sentiment, reason = analyze_sentiment_rule(title, content)
     try:
         supabase.table("community_posts").insert({
             "title": title,
