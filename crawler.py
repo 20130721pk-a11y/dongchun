@@ -135,7 +135,7 @@ NON_GAME_BLOCKLIST = [
     "고사양 컴퓨터", "컴퓨터 본체", "게이밍 본체", "본체 추천",
     "최적화 컴퓨터", "최적화 pc", "고사양 pc", "고성능 pc",
     "pc방 창업", "컴퓨터 임대", "렌탈", "할부",
-    "쿠팡", "11번가", "지마켓", "옥션", "네이버쇼핑",
+    "쿠팡", "11번가", "지마켓", "옥션", "네이버쇼핑", "조이스틱", "트리거 핸드폰", "트리거 모바일", "배그 트리거", "배그 조이스틱", "이어폰 가성비", "이어폰 원픽", "라이젠", "ryzen", "데스크탑 추천", "가성비 원픽", "쿠팡파트너스", "협찬", "구매링크", "제휴마케팅",
 ]
 
 def is_blog_title_game_related(title, keyword):
@@ -178,7 +178,15 @@ def is_game_related(title, summary="", source_name=""):
     if "아키텍트" in text:
         return any(kw in text for kw in ["게임", "mmorpg", "rpg", "pvp", "모바일", "드림에이지", "알케론", "크로스플랫폼"])
 
-    # 게임 전용 키워드 포함 여부
+    # 경쟁사 키워드 + 하드웨어 광고 패턴 차단
+    COMPETITOR_KWS = ["배틀그라운드","배그","pubg","포트나이트","fortnite","발로란트","valorant","이터널리턴","리그오브레전드","오버워치"]
+    NEWS_INDICATORS = ["업데이트","패치","시즌","이벤트","대회","e스포츠","esports","서버","신규","출시","발표","공개","개발사","소식","우승","선수","토너먼트","리그","버그","점검","공지","핫픽스","밸런스","오픈베타","cbt","obt"]
+    HARDWARE_CONTEXT = ["추천","가성비","구매","후기 추천","노트북","데스크탑","핸드폰","스마트폰","이어폰","마우스","키보드","헤드셋","조이스틱","고사양","최적화 설정","그래픽 설정"]
+    if any(kw in text for kw in COMPETITOR_KWS):
+        has_news = any(ind in text for ind in NEWS_INDICATORS)
+        has_hw = any(hw in text for hw in HARDWARE_CONTEXT)
+        if has_hw and not has_news:
+            return False
     return any(kw in text for kw in GAME_SPECIFIC_KEYWORDS)
 
 def get_category(title, summary=""):
