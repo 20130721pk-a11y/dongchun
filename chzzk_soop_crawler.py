@@ -31,6 +31,21 @@ HEADERS = {
 }
 
 
+GAME_KEYWORDS = [
+    "게임","게이머","플레이","출시","업데이트","패치","서버","캐릭터","아이템",
+    "스킬","pvp","pve","rpg","fps","moba","mmorpg","모바일게임","스팀","콘솔",
+    "e스포츠","esports","대회","시즌","배틀","테스트","베타","신작","런칭",
+    "드림에이지","알케론","아키텍트","포트나이트","발로란트",
+    "배틀그라운드","pubg","valorant","fortnite","이터널리턴",
+    "리그오브레전드","lol","gaming","game","gameplay"
+]
+
+def is_game_related(title):
+    text = title.lower()
+    if any(kw in text for kw in ["드림에이지","알케론","arkheron","drimage"]):
+        return True
+    return any(kw.lower() in text for kw in GAME_KEYWORDS)
+
 def get_tags(title, summary=""):
     text = (title + " " + (summary or "")).lower()
     found = []
@@ -40,12 +55,11 @@ def get_tags(title, summary=""):
                 found.append(kw)
     return found
 
-def crawl_chzzk(keyword, category):
+def crawl_chzzk(keyword, category, max_pages=5):
     """페이지네이션으로 최대 100개 수집"""
     headers = {**HEADERS, "Origin": "https://chzzk.naver.com", "Referer": "https://chzzk.naver.com"}
     results = []
     next_offset = 0
-    max_pages = 5  # 최대 5페이지 (페이지당 20개 = 최대 100개)
 
     for _ in range(max_pages):
         try:
@@ -117,7 +131,8 @@ def crawl():
     for category, keywords in KEYWORDS.items():
         for keyword in keywords:
             print(f"\n📡 치지직 - {keyword} 수집 중...")
-            items = crawl_chzzk(keyword, category)
+            max_p = 5 if category == "자사" else 2
+            items = crawl_chzzk(keyword, category, max_pages=max_p)
             print(f"  → {len(items)}개 발견")
             for item in items:
                 total += 1
@@ -134,6 +149,9 @@ def crawl():
                         break
                 else:
                     if keyword not in tags: tags.append(keyword)
+                if not is_game_related(title):
+                    skipped += 1
+                    continue
                 if save_stream(title, channel, "치지직", stream_url, thumbnail, category, True, tags, viewer_count, item.get("started_at")):
                     saved += 1
                     print(f"  ✅ [🔴LIVE] {title[:40]}...")
