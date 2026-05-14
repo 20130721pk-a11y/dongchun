@@ -66,7 +66,7 @@ jobs:
       - name: 커뮤니티 크롤러 실행
         uses: nick-fields/retry@v3
         with:
-          timeout_minutes: 15
+          timeout_minutes: 30
           max_attempts: 3
           retry_wait_seconds: 60
           command: python3 community_crawler.py
