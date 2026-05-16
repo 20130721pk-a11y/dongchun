@@ -556,10 +556,13 @@ def is_recent(posted_at, hours=72):
         return False
     try:
         from datetime import timezone, timedelta
+        import pytz
         pub = datetime.fromisoformat(str(posted_at).replace("Z", "+00:00"))
         if pub.tzinfo is None:
             pub = pub.replace(tzinfo=timezone.utc)
-        return pub >= datetime.now(timezone.utc) - timedelta(hours=hours)
+        kst = pytz.timezone('Asia/Seoul')
+        today_kst = datetime.now(kst).date()
+        return pub.astimezone(kst).date() >= today_kst
     except:
         return True
 
