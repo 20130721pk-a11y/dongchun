@@ -104,7 +104,6 @@ def crawl():
     print(f"\n광고 크롤링 시작: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
     for competitor,queries in COMPETITORS.items():
         crawl_youtube(competitor,queries)
-        crawl_naver(competitor,queries)
         for ad in crawl_meta_ads(competitor, queries[:2]):
             save_ad(ad['platform'],ad['competitor'],ad['title'],ad['description'],ad['url'],ad['thumbnail'],ad['published_at'],ad['ad_type'])
     print("완료")
