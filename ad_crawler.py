@@ -41,6 +41,11 @@ def crawl_meta_ads(competitor, keyword):
                 url = f"https://www.facebook.com/ads/library/?active_status=all&ad_type=all&country=KR&q={keyword}&search_type=keyword_unordered"
                 page.goto(url, timeout=30000, wait_until="domcontentloaded")
                 page.wait_for_timeout(6000)
+                # 디버그: 실제 로드된 페이지 확인
+                title = page.title()
+                print(f"    페이지 제목: {title}")
+                body_text = page.inner_text("body")[:200]
+                print(f"    페이지 내용: {body_text}")
 
                 # 광고 카드: aria-label 또는 data 속성 기반으로 안정적 추출
                 page.evaluate("window.scrollTo(0, 300)")
