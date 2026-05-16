@@ -37,7 +37,7 @@ def is_game_related(title, summary=""):
     text = (title + " " + (summary or "")).lower()
     if "드림에이지" in text or "알케론" in text or "arkheron" in text or "drimage" in text:
         return True
-    if "아키텍트" in text and any(kw in text for kw in ["게임", "mmorpg", "rpg", "pvp", "모바일", "크로스플랫폼", "심연", "쟁"]):
+    if "아키텍트" in text:
         return True
     return any(kw.lower() in text for kw in GAME_KEYWORDS)
 
