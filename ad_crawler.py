@@ -22,6 +22,54 @@ def save_ad(platform,competitor,title,description,url,thumbnail,published_at,ad_
     except Exception as e:
         print(f"저장 오류: {e}")
 
+
+GOOGLE_COMPETITORS = {
+    "포트나이트":     "Fortnite",
+    "배틀그라운드":   "PUBG",
+    "발로란트":       "Valorant",
+    "리그오브레전드": "League of Legends",
+    "오버워치2":      "Overwatch",
+    "에이펙스 레전드":"Apex Legends",
+    "이터널리턴":     "Eternal Return",
+}
+
+def crawl_google_ads(competitor, keyword):
+    """Google Ads Transparency Center 크롤링"""
+    results = []
+    try:
+        from GoogleAds import GoogleAds
+        a = GoogleAds()
+        a.region = "KR"
+        data = a.get_creative_Ids(keyword, 20)
+        if not data or not data.get("Creative_Ids"):
+            print(f"    Google {competitor}: 0건")
+            return results
+        adv_id = data["Advertisor Id"]
+        for cid in data["Creative_Ids"][:10]:
+            try:
+                brief = a.get_breif_ads(adv_id, cid)
+                if not brief:
+                    continue
+                ad_link = brief.get("Ad Link","")
+                ad_format = brief.get("Ad Format","")
+                last_shown = brief.get("Last Shown","")
+                results.append({
+                    "platform": "Google",
+                    "competitor": competitor,
+                    "title": f"[{ad_format}] {data.get('Advertisor',keyword)} - {last_shown}",
+                    "description": f"광고주: {data.get('Advertisor',keyword)} | 형식: {ad_format} | 마지막 노출: {last_shown}",
+                    "url": f"https://adstransparency.google.com/advertiser/{adv_id}/creative/{cid}?region=KR",
+                    "thumbnail": ad_link if ad_format == "Image" else "",
+                    "published_at": last_shown or None,
+                    "ad_type": ad_format,
+                })
+            except Exception as e:
+                pass
+        print(f"    Google {competitor}: {len(results)}건")
+    except Exception as e:
+        print(f"    Google 오류 ({competitor}): {e}")
+    return results
+
 def crawl_meta_ads(competitor, keyword):
     """Facebook Ads Library 키워드 검색 스크래핑"""
     results = []
@@ -138,6 +186,9 @@ def crawl():
         queries = info["queries"]
         fb_page = info["fb_page"]
         crawl_youtube(competitor,queries)
+        # Google 광고
+        for ad in crawl_google_ads(competitor, GOOGLE_COMPETITORS.get(competitor, competitor)):
+            save_ad(ad['platform'],ad['competitor'],ad['title'],ad['description'],ad['url'],ad['thumbnail'],ad['published_at'],ad['ad_type'])
         for ad in crawl_meta_ads(competitor, competitor):
             save_ad(ad['platform'],ad['competitor'],ad['title'],ad['description'],ad['url'],ad['thumbnail'],ad['published_at'],ad['ad_type'])
     print("완료")
