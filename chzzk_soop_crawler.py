@@ -152,6 +152,19 @@ def crawl():
                 if not is_game_related(title):
                     skipped += 1
                     continue
+
+            # 당일(KST) 방송만 수집
+            started = item.get("started_at") or live.get("openDate") or ""
+            if started:
+                try:
+                    import pytz
+                    from datetime import datetime as dt2
+                    pub_dt = dt2.fromisoformat(str(started).replace("Z", "+00:00"))
+                    kst = pytz.timezone('Asia/Seoul')
+                    if pub_dt.astimezone(kst).date() < dt2.now(kst).date():
+                        continue
+                except:
+                    pass
                 if save_stream(title, channel, "치지직", stream_url, thumbnail, category, True, tags, viewer_count, item.get("started_at")):
                     saved += 1
                     print(f"  ✅ [🔴LIVE] {title[:40]}...")

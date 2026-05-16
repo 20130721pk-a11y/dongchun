@@ -127,6 +127,18 @@ def crawl_youtube():
                 if not is_game_related(title):
                     skipped += 1
                     continue
+                # 당일(KST) 게시물만 수집
+                if published:
+                    try:
+                        import pytz
+                        pub_dt = datetime.fromisoformat(published.replace("Z", "+00:00"))
+                        kst = pytz.timezone('Asia/Seoul')
+                        if pub_dt.astimezone(kst).date() < datetime.now(kst).date():
+                            skipped += 1
+                            continue
+                    except:
+                        pass
+
                 try:
                     supabase.table("streams").insert({
                         "title": title,
@@ -176,6 +188,18 @@ def crawl_youtube():
                 if not is_game_related(title):
                     skipped += 1
                     continue
+                # 당일(KST) 게시물만 수집
+                if published:
+                    try:
+                        import pytz
+                        pub_dt = datetime.fromisoformat(published.replace("Z", "+00:00"))
+                        kst = pytz.timezone('Asia/Seoul')
+                        if pub_dt.astimezone(kst).date() < datetime.now(kst).date():
+                            skipped += 1
+                            continue
+                    except:
+                        pass
+
                 try:
                     supabase.table("streams").insert({
                         "title": title,
