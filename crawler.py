@@ -56,6 +56,9 @@ SOURCES = [
     {"name": "네이버 - 게임업계", "url": "https://search.naver.com/rss.naver?where=news&query=%EA%B2%8C%EC%9E%84%EC%82%AC+%EC%8B%A0%EC%9E%91"},
     {"name": "인벤", "url": "https://www.inven.co.kr/rss/news.php"},
     {"name": "루리웹", "url": "https://bbs.ruliweb.com/news/rss"},
+    {"name": "디스이즈게임", "url": "https://www.thisisgame.com/webzine/game/nboard/5/?rss=1"},
+    {"name": "게임조선", "url": "https://www.gamechosun.co.kr/rss/"},
+    {"name": "게임메카", "url": "https://www.gamemeca.com/feed/"},
 ]
 
 def search_naver_news(keyword, client_id, client_secret, display=100):
