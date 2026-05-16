@@ -38,8 +38,14 @@ def crawl_meta_ads(competitor, keyword):
             )
             page = context.new_page()
             try:
-                url = f"https://www.facebook.com/ads/library/?active_status=all&ad_type=all&country=KR&q={keyword}&search_type=keyword_unordered"
-                page.goto(url, timeout=30000, wait_until="domcontentloaded")
+                page.goto("https://www.facebook.com/ads/library/?country=KR&ad_type=all", timeout=30000, wait_until="domcontentloaded")
+                page.wait_for_timeout(4000)
+                search_input = page.query_selector("input[type='text'], input[placeholder], [role='combobox']")
+                if search_input:
+                    search_input.click()
+                    search_input.fill(keyword)
+                    page.keyboard.press("Enter")
+                    page.wait_for_timeout(6000)
                 page.wait_for_timeout(6000)
                 # 디버그: 실제 로드된 페이지 확인
                 title = page.title()
