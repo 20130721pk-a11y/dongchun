@@ -24,13 +24,13 @@ def save_ad(platform,competitor,title,description,url,thumbnail,published_at,ad_
 
 
 GOOGLE_COMPETITORS = {
-    "포트나이트":     "Fortnite",
-    "배틀그라운드":   "PUBG",
-    "발로란트":       "Valorant",
-    "리그오브레전드": "League of Legends",
-    "오버워치2":      "Overwatch",
-    "에이펙스 레전드":"Apex Legends",
-    "이터널리턴":     "Eternal Return",
+    "포트나이트":     "Epic Games",
+    "배틀그라운드":   "Krafton",
+    "발로란트":       "Riot Games",
+    "리그오브레전드": "Riot Games",
+    "오버워치2":      "Blizzard Entertainment",
+    "에이펙스 레전드":"Electronic Arts",
+    "이터널리턴":     "Nimble Neuron",
 }
 
 def crawl_google_ads(competitor, keyword):
