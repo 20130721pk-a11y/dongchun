@@ -58,7 +58,7 @@ def crawl_google_ads(competitor, keyword):
                     try:
                         from datetime import date
                         shown_date = date.fromisoformat(last_shown)
-                        if (date.today() - shown_date).days > 90:
+                        if (date.today() - shown_date).days > 365:
                             continue
                     except:
                         pass
@@ -196,8 +196,7 @@ def crawl():
     for competitor,info in COMPETITORS.items():
         queries = info["queries"]
         fb_page = info["fb_page"]
-        crawl_youtube(competitor,queries)
-        # Google 광고만 수집 (YouTube/Meta 비활성화)
+        # Google 광고만 수집
         for ad in crawl_google_ads(competitor, GOOGLE_COMPETITORS.get(competitor, competitor)):
             save_ad(ad['platform'],ad['competitor'],ad['title'],ad['description'],ad['url'],ad['thumbnail'],ad['published_at'],ad['ad_type'])
     print("완료")
