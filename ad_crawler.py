@@ -7,7 +7,15 @@ YOUTUBE_API_KEY = os.environ.get("YOUTUBE_API_KEY", "")
 NAVER_CLIENT_ID = os.environ.get("NAVER_CLIENT_ID", "")
 NAVER_CLIENT_SECRET = os.environ.get("NAVER_CLIENT_SECRET", "")
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
-COMPETITORS = {"포트나이트":["포트나이트 광고","fortnite korea 광고"],"배틀그라운드":["배그 광고","배틀그라운드 광고"],"발로란트":["발로란트 광고","valorant korea 광고"],"이터널리턴":["이터널리턴 광고"],"리그오브레전드":["롤 광고","리그오브레전드 광고"],"오버워치2":["오버워치 광고"],"에이펙스 레전드":["에이펙스 광고"]}
+COMPETITORS = {
+    "포트나이트":     {"fb_page": "FortniteKO",           "queries": ["포트나이트 광고","fortnite korea"]},
+    "배틀그라운드":   {"fb_page": "PUBGBATTLEGROUNDSKR",   "queries": ["배틀그라운드 광고","PUBG korea"]},
+    "발로란트":       {"fb_page": "VALORANTKR",            "queries": ["발로란트 광고","valorant korea"]},
+    "리그오브레전드": {"fb_page": "LeagueofLegendsKor",    "queries": ["리그오브레전드 광고","LoL korea"]},
+    "오버워치2":      {"fb_page": "OverwatchKR",           "queries": ["오버워치 광고","overwatch korea"]},
+    "에이펙스 레전드":{"fb_page": "playapex",              "queries": ["에이펙스 광고","apex legends korea"]},
+    "이터널리턴":     {"fb_page": "EternalReturnGame",     "queries": ["이터널리턴 광고","eternal return"]},
+}
 def save_ad(platform,competitor,title,description,url,thumbnail,published_at,ad_type,views=0):
     try:
         supabase.table("competitor_ads").upsert({"platform":platform,"competitor":competitor,"title":title[:500] if title else "","description":description[:1000] if description else "","url":url,"thumbnail":thumbnail,"published_at":published_at,"ad_type":ad_type,"views":views},on_conflict="url").execute()
@@ -31,7 +39,7 @@ def crawl_meta_ads(competitor, search_terms):
             page = context.new_page()
             for term in search_terms[:2]:
                 try:
-                    url = f"https://www.facebook.com/ads/library/?active_status=all&ad_type=all&country=KR&q={term}&search_type=keyword_unordered"
+                    url = f"https://www.facebook.com/ads/library/?active_status=all&ad_type=all&country=KR&q={term}&search_type=page"
                     page.goto(url, timeout=30000, wait_until="domcontentloaded")
                     page.wait_for_timeout(5000)
 
@@ -102,9 +110,11 @@ def crawl_naver(competitor,queries):
             except Exception as e:print(f"  Naver 오류: {e}")
 def crawl():
     print(f"\n광고 크롤링 시작: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
-    for competitor,queries in COMPETITORS.items():
+    for competitor,info in COMPETITORS.items():
+        queries = info["queries"]
+        fb_page = info["fb_page"]
         crawl_youtube(competitor,queries)
-        for ad in crawl_meta_ads(competitor, queries[:2]):
+        for ad in crawl_meta_ads(competitor, [fb_page] + queries[:1]):
             save_ad(ad['platform'],ad['competitor'],ad['title'],ad['description'],ad['url'],ad['thumbnail'],ad['published_at'],ad['ad_type'])
     print("완료")
 if __name__=="__main__":crawl()
