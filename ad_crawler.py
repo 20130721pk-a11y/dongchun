@@ -53,13 +53,24 @@ def crawl_google_ads(competitor, keyword):
                 ad_link = brief.get("Ad Link","")
                 ad_format = brief.get("Ad Format","")
                 last_shown = brief.get("Last Shown","")
+                # 최근 90일 이내 광고만 수집
+                if last_shown:
+                    try:
+                        from datetime import date
+                        shown_date = date.fromisoformat(last_shown)
+                        if (date.today() - shown_date).days > 90:
+                            continue
+                    except:
+                        pass
+                # 썸네일: 이미지는 직접 URL, 영상은 투명성 센터 링크
+                thumbnail = ad_link if ad_format == "Image" else ""
                 results.append({
                     "platform": "Google",
                     "competitor": competitor,
-                    "title": f"[{ad_format}] {data.get('Advertisor',keyword)} - {last_shown}",
-                    "description": f"광고주: {data.get('Advertisor',keyword)} | 형식: {ad_format} | 마지막 노출: {last_shown}",
+                    "title": f"{data.get('Advertisor',keyword)}",
+                    "description": f"형식: {ad_format} | 마지막 노출: {last_shown}",
                     "url": f"https://adstransparency.google.com/advertiser/{adv_id}/creative/{cid}?region=KR",
-                    "thumbnail": ad_link if ad_format == "Image" else "",
+                    "thumbnail": thumbnail,
                     "published_at": last_shown or None,
                     "ad_type": ad_format,
                 })
@@ -186,10 +197,8 @@ def crawl():
         queries = info["queries"]
         fb_page = info["fb_page"]
         crawl_youtube(competitor,queries)
-        # Google 광고
+        # Google 광고만 수집 (YouTube/Meta 비활성화)
         for ad in crawl_google_ads(competitor, GOOGLE_COMPETITORS.get(competitor, competitor)):
-            save_ad(ad['platform'],ad['competitor'],ad['title'],ad['description'],ad['url'],ad['thumbnail'],ad['published_at'],ad['ad_type'])
-        for ad in crawl_meta_ads(competitor, competitor):
             save_ad(ad['platform'],ad['competitor'],ad['title'],ad['description'],ad['url'],ad['thumbnail'],ad['published_at'],ad['ad_type'])
     print("완료")
 if __name__=="__main__":crawl()
