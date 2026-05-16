@@ -38,17 +38,13 @@ def crawl_meta_ads(competitor, keyword):
             )
             page = context.new_page()
             try:
-                page.goto("https://www.facebook.com/ads/library/?country=KR&ad_type=all", timeout=30000, wait_until="domcontentloaded")
-                page.wait_for_timeout(4000)
-                search_input = page.query_selector("input[type='search'], input[placeholder], div[role='combobox'] input, div[contenteditable]")
-                if search_input:
-                    search_input.click()
-                    search_input.click()
-                    page.keyboard.type(keyword, delay=100)
-                    page.keyboard.press("Enter")
-                    page.wait_for_timeout(6000)
-                page.wait_for_timeout(6000)
-                # 디버그: 실제 로드된 페이지 확인
+                import urllib.parse
+                encoded = urllib.parse.quote(keyword)
+                url = f"https://www.facebook.com/ads/library/?active_status=all&ad_type=all&country=KR&q={encoded}&search_type=keyword_unordered"
+                page.goto(url, timeout=30000, wait_until="networkidle")
+                page.wait_for_timeout(8000)
+                page.evaluate("window.scrollTo(0, 300)")
+                page.wait_for_timeout(3000)
                 title = page.title()
                 print(f"    페이지 제목: {title}")
                 body_text = page.inner_text("body")[:200]
