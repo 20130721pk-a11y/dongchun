@@ -40,10 +40,11 @@ def crawl_meta_ads(competitor, keyword):
             try:
                 page.goto("https://www.facebook.com/ads/library/?country=KR&ad_type=all", timeout=30000, wait_until="domcontentloaded")
                 page.wait_for_timeout(4000)
-                search_input = page.query_selector("input[type='text'], input[placeholder], [role='combobox']")
+                search_input = page.query_selector("input[type='search'], input[placeholder], div[role='combobox'] input, div[contenteditable]")
                 if search_input:
                     search_input.click()
-                    search_input.fill(keyword)
+                    search_input.click()
+                    page.keyboard.type(keyword, delay=100)
                     page.keyboard.press("Enter")
                     page.wait_for_timeout(6000)
                 page.wait_for_timeout(6000)
