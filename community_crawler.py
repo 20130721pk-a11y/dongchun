@@ -528,6 +528,37 @@ def crawl_nate(keyword):
         print(f"  ⚠️ 네이트판 실패: {e}")
     return results
 
+def crawl_minimap(keyword):
+    results = []
+    try:
+        client_id = os.environ.get("NAVER_CLIENT_ID", "")
+        client_secret = os.environ.get("NAVER_CLIENT_SECRET", "")
+        params = {"query": f"{keyword} minimap.net", "display": 100, "sort": "date"}
+        headers = {"X-Naver-Client-Id": client_id, "X-Naver-Client-Secret": client_secret}
+        resp = requests.get("https://openapi.naver.com/v1/search/news.json", params=params, headers=headers, timeout=10)
+        if resp.status_code != 200:
+            return results
+        for item in resp.json().get("items", []):
+            link = item.get("link", "")
+            if "minimap.net" not in link:
+                continue
+            title = re.sub('<[^<]+?>', '', item.get("title", ""))
+            desc = re.sub('<[^<]+?>', '', item.get("description", ""))
+            pub_date = item.get("pubDate", "")
+            try:
+                from email.utils import parsedate_to_datetime
+                posted_at = parsedate_to_datetime(pub_date).isoformat() if pub_date else None
+            except:
+                posted_at = None
+            results.append({
+                "title": title, "content": desc, "url": link,
+                "community": "미니맵", "views": 0, "comments": 0,
+                "keyword": keyword, "posted_at": posted_at
+            })
+    except Exception as e:
+        print(f"미니맵 크롤링 오류: {e}")
+    return results
+
 def crawl_thisisgame(keyword):
     print(f"\n📡 디스이즈게임 - {keyword} 수집 중...")
     results = []
@@ -579,6 +610,7 @@ def crawl():
         ("에펨코리아", crawl_fmkorea),
         ("네이트판", crawl_nate),
         ("디스이즈게임", crawl_thisisgame),
+        ("미니맵", crawl_minimap),
     ]
 
     for keyword in get_all_keywords():
