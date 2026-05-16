@@ -24,13 +24,13 @@ def save_ad(platform,competitor,title,description,url,thumbnail,published_at,ad_
 
 
 GOOGLE_COMPETITORS = {
-    "포트나이트":     "Epic Games",
-    "배틀그라운드":   "Krafton",
-    "발로란트":       "Riot Games",
-    "리그오브레전드": "Riot Games",
-    "오버워치2":      "Blizzard Entertainment",
-    "에이펙스 레전드":"Electronic Arts",
-    "이터널리턴":     "Nimble Neuron",
+    "포트나이트":     {"query": "Epic Games",            "label": "Epic Games(포트나이트)"},
+    "배틀그라운드":   {"query": "Krafton",               "label": "Krafton(배틀그라운드)"},
+    "발로란트":       {"query": "Riot Games",            "label": "Riot Games(발로란트)"},
+    "리그오브레전드": {"query": "Riot Games",            "label": "Riot Games(리그오브레전드)"},
+    "오버워치2":      {"query": "Blizzard Entertainment","label": "Blizzard(오버워치2)"},
+    "에이펙스 레전드":{"query": "Electronic Arts",       "label": "EA(에이펙스 레전드)"},
+    "이터널리턴":     {"query": "Nimble Neuron",         "label": "Nimble Neuron(이터널리턴)"},
 }
 
 def crawl_google_ads(competitor, keyword):
@@ -197,7 +197,7 @@ def crawl():
         queries = info["queries"]
         fb_page = info["fb_page"]
         # Google 광고만 수집
-        for ad in crawl_google_ads(competitor, GOOGLE_COMPETITORS.get(competitor, competitor)):
+        for ad in crawl_google_ads(GOOGLE_COMPETITORS[competitor]['label'] if competitor in GOOGLE_COMPETITORS else competitor, GOOGLE_COMPETITORS[competitor]['query'] if competitor in GOOGLE_COMPETITORS else competitor):
             save_ad(ad['platform'],ad['competitor'],ad['title'],ad['description'],ad['url'],ad['thumbnail'],ad['published_at'],ad['ad_type'])
     print("완료")
 if __name__=="__main__":crawl()
