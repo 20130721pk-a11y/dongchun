@@ -221,7 +221,7 @@ def parse_feed(url):
 def is_recent(published_iso, hours=48):
     """published_at이 최근 N시간 이내인지 확인"""
     if not published_iso:
-        return True  # 날짜 없으면 통과 (알 수 없으므로)
+        return False  # 날짜 없으면 수집 안 함 (오래된 기사 방지)
     try:
         from datetime import timezone, timedelta
         pub = datetime.fromisoformat(published_iso.replace("Z", "+00:00"))
@@ -230,7 +230,7 @@ def is_recent(published_iso, hours=48):
         cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
         return pub >= cutoff
     except:
-        return True  # 파싱 실패 시 통과
+        return False  # 파싱 실패 시 수집 안 함
 
 def crawl():
     print(f"\n🚀 크롤링 시작: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
