@@ -529,34 +529,42 @@ def crawl_nate(keyword):
     return results
 
 def crawl_minimap(keyword):
+    print(f"\n📡 미니맵 - {keyword} 수집 중...")
     results = []
     try:
-        client_id = os.environ.get("NAVER_CLIENT_ID", "")
-        client_secret = os.environ.get("NAVER_CLIENT_SECRET", "")
-        params = {"query": f"{keyword} minimap.net", "display": 100, "sort": "date"}
-        headers = {"X-Naver-Client-Id": client_id, "X-Naver-Client-Secret": client_secret}
-        resp = requests.get("https://openapi.naver.com/v1/search/news.json", params=params, headers=headers, timeout=10)
+        encoded = requests.utils.quote(keyword)
+        url = f"https://minimap.net/api/search/getSearchMain?searchValue={encoded}"
+        resp = requests.get(url, headers=HEADERS, timeout=15)
         if resp.status_code != 200:
+            print(f"  ⚠️ 미니맵 API 오류: {resp.status_code}")
             return results
-        for item in resp.json().get("items", []):
-            link = item.get("link", "")
-            if "minimap.net" not in link:
+        data = resp.json()
+        for item in data.get("postList", []):
+            post_sn = item.get("postSn")
+            title = item.get("title", "").strip() or item.get("pageTitle", "").strip()
+            content = item.get("content", "").strip()
+            display_time = item.get("displayTime", "")
+            comment_cnt = item.get("commentCnt", 0) or 0
+            if not title and not content:
                 continue
-            title = re.sub('<[^<]+?>', '', item.get("title", ""))
-            desc = re.sub('<[^<]+?>', '', item.get("description", ""))
-            pub_date = item.get("pubDate", "")
             try:
-                from email.utils import parsedate_to_datetime
-                posted_at = parsedate_to_datetime(pub_date).isoformat() if pub_date else None
+                posted_at = display_time.split(".")[0].replace(" ", "T") if display_time else None
             except:
                 posted_at = None
+            post_url = f"https://minimap.net/post/{post_sn}" if post_sn else ""
             results.append({
-                "title": title, "content": desc, "url": link,
-                "community": "미니맵", "views": 0, "comments": 0,
-                "keyword": keyword, "posted_at": posted_at
+                "title": title[:200],
+                "content": content[:500],
+                "url": post_url,
+                "community": "미니맵",
+                "views": 0,
+                "comments": comment_cnt,
+                "keyword": keyword,
+                "posted_at": posted_at
             })
+        print(f"  ✅ 미니맵 {len(results)}건 수집")
     except Exception as e:
-        print(f"미니맵 크롤링 오류: {e}")
+        print(f"  ⚠️ 미니맵 크롤링 오류: {e}")
     return results
 
 def crawl_thisisgame(keyword):
