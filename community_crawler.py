@@ -684,7 +684,7 @@ def is_recent(posted_at, hours=72):
         today_kst = datetime.now(kst).date()
         return pub.astimezone(kst).date() >= today_kst
     except:
-        return True
+        return False  # 파싱 실패 시 수집 안 함
 
 def crawl():
     print(f"\n🔍 커뮤니티 크롤링 시작: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
@@ -713,13 +713,12 @@ def crawl():
                 if not is_game_related(post['title']):
                     skipped += 1
                     continue
-                # 날짜 없는 게시물은 당일 수집분으로 간주 (네이트판, 인벤 등)
+                # 날짜 필터: 네이트판은 날짜 없어도 허용, 나머지는 당일만
                 posted_at_val = post.get('posted_at')
-                if posted_at_val is None and community in ['인벤', '네이트판']:
-                    pass  # 날짜 없으면 통과
-                elif community not in ['네이트판'] and not is_recent(posted_at_val):
-                    skipped += 1
-                    continue
+                if community != '네이트판':
+                    if not posted_at_val or not is_recent(posted_at_val):
+                        skipped += 1
+                        continue
                 success, sentiment = save_post(
                     post['title'], "", post['url'], community,
                     post['views'], post['comments'], keyword, post['posted_at'],
