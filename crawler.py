@@ -236,6 +236,16 @@ def crawl():
     print(f"\n🚀 크롤링 시작: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
     total, saved, skipped, filtered = 0, 0, 0, 0
 
+    # 기존 수집 URL 캐시 (중복 방지)
+    try:
+        from datetime import timedelta, timezone
+        existing = supabase.table("news").select("url").gte("collected_at", (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()).execute()
+        existing_urls = {r["url"] for r in existing.data if r.get("url")}
+        print(f"  기존 URL {len(existing_urls)}개 캐시 완료")
+    except Exception as e:
+        existing_urls = set()
+        print(f"  URL 캐시 실패: {e}")
+
     # RSS 피드 수집
     for source in SOURCES:
         print(f"\n📡 {source['name']} 수집 중...")
@@ -265,6 +275,12 @@ def crawl():
             if not is_recent(published):
                 filtered += 1
                 continue
+
+            # URL 중복 체크
+            if url in existing_urls:
+                skipped += 1
+                continue
+            existing_urls.add(url)
 
             category, _ = get_category(title, summary)
             tags = get_tags(title, summary)
@@ -319,6 +335,12 @@ def crawl():
                 if not is_recent(published):
                     filtered += 1
                     continue
+
+                # URL 중복 체크
+                if url in existing_urls:
+                    skipped += 1
+                    continue
+                existing_urls.add(url)
 
                 url_source = "blog.naver.com" if "blog.naver.com" in url else ""
                 if not is_game_related(title, summary, url_source):
