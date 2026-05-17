@@ -19,16 +19,10 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: 라이브러리 설치
-        uses: nick-fields/retry@v3
-        with:
-          timeout_minutes: 10
-          max_attempts: 3
-          retry_wait_seconds: 30
-          command: pip install -r requirements.txt
-
-      - name: Playwright 브라우저 설치
-        run: python -m playwright install chromium --with-deps
+      - name: 라이브러리 및 Playwright 설치
+        run: |
+          pip install -r requirements.txt
+          python -m playwright install chromium --with-deps
 
       - name: 뉴스 크롤러 실행
         uses: nick-fields/retry@v3
