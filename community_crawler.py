@@ -228,20 +228,22 @@ def crawl_inven(keyword):
     results = []
     try:
         encoded = requests.utils.quote(keyword)
-        url = f"https://www.inven.co.kr/search/webzine/top/{encoded}"
+        # 커뮤니티+웹진 통합 검색 URL
+        url = f"https://www.inven.co.kr/search/community/all/{encoded}"
         response = requests.get(url, headers=HEADERS, timeout=10)
         soup = BeautifulSoup(response.text, 'html.parser')
-        links = soup.find_all('a', href=True)
         seen = set()
-        for a in links:
+        # fallback: a 태그 중 inven.co.kr 포함 href
+        for a in soup.find_all('a', href=True):
             href = a.get('href', '')
             title = a.get_text(strip=True)
-            if (keyword in title or keyword.lower() in title.lower()) and len(title) > 5 and href not in seen:
-                if 'inven.co.kr' in href:
+            if 'inven.co.kr' in href and len(title) > 5 and href not in seen:
+                if any(x in href for x in ['/board/', '/article/', '/news/', '/webzine/']):
                     seen.add(href)
-                    results.append({'title': title[:100], 'url': href, 'posted_at': None, 'views': 0, 'comments': 0})
+                    results.append({'title': title[:100], 'url': href, 'posted_at': datetime.now().isoformat(), 'views': 0, 'comments': 0})
             if len(results) >= 100:
                 break
+        print(f"  ✅ 인벤 {len(results)}건 수집")
     except Exception as e:
         print(f"  ⚠️ 인벤 실패: {e}")
     return results
@@ -250,25 +252,50 @@ def crawl_ruliweb(keyword):
     print(f"\n📡 루리웹 - {keyword} 수집 중...")
     results = []
     try:
-        url = f"https://bbs.ruliweb.com/search?q={requests.utils.quote(keyword)}"
-        response = requests.get(url, headers=HEADERS, timeout=10)
-        soup = BeautifulSoup(response.text, 'html.parser')
-        links = soup.find_all('a', href=True)
+        from playwright.sync_api import sync_playwright
+        encoded = requests.utils.quote(keyword)
+        url = f"https://bbs.ruliweb.com/search?q={encoded}&searchType=subject&orderType=latest"
+        with sync_playwright() as p:
+            browser = p.chromium.launch(
+                headless=True,
+                args=["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"]
+            )
+            page = browser.new_page(
+                user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+            )
+            page.goto(url, timeout=30000, wait_until="domcontentloaded")
+            page.wait_for_timeout(2000)
+            html = page.content()
+            browser.close()
+        soup = BeautifulSoup(html, 'html.parser')
         seen = set()
-        for a in links:
-            href = a.get('href', '')
-            title = a.get_text(strip=True)
-            if ('read' in href or '/news/' in href) and title and len(title) > 5 and href not in seen:
-                if keyword.lower() in title.lower():
-                    seen.add(href)
-                    try:
-                        from datetime import datetime as dt
-                        posted_at = dt.now().isoformat()
-                    except:
-                        posted_at = None
-                    results.append({'title': title[:100], 'url': href, 'posted_at': posted_at, 'views': 0, 'comments': 0})
+        # 루리웹 검색 결과: tr.item 또는 .list_body tr
+        rows = soup.select('tr.item') or soup.select('.board_list_table tbody tr')
+        for row in rows:
+            title_tag = row.select_one('a.deco') or row.select_one('td.subject a') or row.select_one('a[href*="/read/"]')
+            if not title_tag:
+                continue
+            title = title_tag.get_text(strip=True)
+            href = title_tag.get('href', '')
+            if not href.startswith('http'):
+                href = 'https://bbs.ruliweb.com' + href
+            if not title or len(title) < 5 or href in seen:
+                continue
+            seen.add(href)
+            date_tag = row.select_one('td.time') or row.select_one('.time')
+            posted_at_raw = date_tag.get_text(strip=True) if date_tag else None
+            posted_at = parse_date_safe(posted_at_raw) or datetime.now().isoformat()
+            view_tag = row.select_one('td.hit') or row.select_one('.hit')
+            views = 0
+            if view_tag:
+                try:
+                    views = int(view_tag.get_text(strip=True).replace(',', ''))
+                except:
+                    pass
+            results.append({'title': title[:100], 'url': href, 'posted_at': posted_at, 'views': views, 'comments': 0})
             if len(results) >= 100:
                 break
+        print(f"  ✅ 루리웹 {len(results)}건 수집")
     except Exception as e:
         print(f"  ⚠️ 루리웹 실패: {e}")
     return results
@@ -375,39 +402,6 @@ def crawl_dcinside(keyword):
                         results.append({'title': title[:100], 'url': href, 'posted_at': posted_at, 'views': views, 'comments': comments})
                 if len(results) >= 100:
                     break
-        for page in range(1, 4):
-            url = f"https://gall.dcinside.com/mgallery/board/lists/?id=arkheron&page={page}"
-            response = requests.get(url, headers=HEADERS, timeout=10)
-            soup = BeautifulSoup(response.text, 'html.parser')
-            items = soup.select('tr.ub-content')
-            if not items:
-                items = soup.select('tbody tr')
-            for item in items:
-                title_tag = item.select_one('td.gall_tit a')
-                if not title_tag:
-                    continue
-                title = title_tag.get_text(strip=True)
-                href = title_tag.get('href', '')
-                if not href.startswith('http'):
-                    href = 'https://gall.dcinside.com' + href
-                view_tag = item.select_one('td.gall_count')
-                views = int(view_tag.get_text(strip=True).replace(',', '').replace('-', '0') or 0) if view_tag else 0
-                comment_tag = item.select_one('td.gall_comment')
-                comments = int(comment_tag.get_text(strip=True).replace(',', '').replace('-', '0') or 0) if comment_tag else 0
-                date_tag = item.select_one('td.gall_date')
-                posted_at_raw = date_tag.get('title', date_tag.get_text(strip=True)) if date_tag else None
-                try:
-                    if posted_at_raw and len(posted_at_raw) == 8 and '/' in posted_at_raw:
-                        parts = posted_at_raw.split('/')
-                        posted_at = f"20{parts[0]}-{parts[1]}-{parts[2]}"
-                    else:
-                        posted_at = posted_at_raw
-                except:
-                    posted_at = None
-                if title and len(title) > 2:
-                    results.append({'title': title[:100], 'url': href, 'posted_at': posted_at, 'views': views, 'comments': comments})
-            if len(results) >= 100:
-                break
     except Exception as e:
         print(f"  ⚠️ 디시인사이드 실패: {e}")
     return results[:100]
@@ -719,7 +713,11 @@ def crawl():
                 if not is_game_related(post['title']):
                     skipped += 1
                     continue
-                if community != '네이트판' and not is_recent(post.get('posted_at')):
+                # 날짜 없는 게시물은 당일 수집분으로 간주 (네이트판, 인벤 등)
+                posted_at_val = post.get('posted_at')
+                if posted_at_val is None and community in ['인벤', '네이트판']:
+                    pass  # 날짜 없으면 통과
+                elif community not in ['네이트판'] and not is_recent(posted_at_val):
                     skipped += 1
                     continue
                 success, sentiment = save_post(

@@ -27,6 +27,9 @@ jobs:
           retry_wait_seconds: 30
           command: pip install -r requirements.txt
 
+      - name: Playwright 브라우저 설치
+        run: playwright install chromium --with-deps
+
       - name: 뉴스 크롤러 실행
         uses: nick-fields/retry@v3
         with:
