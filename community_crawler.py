@@ -437,10 +437,22 @@ def crawl_arcalive(keyword):
     print(f"\n📡 아카라이브 - {keyword} 수집 중...")
     results = []
     try:
+        from playwright.sync_api import sync_playwright
         encoded = requests.utils.quote(keyword)
         url = f"https://arca.live/b/breaking?keyword={encoded}"
-        response = requests.get(url, headers=HEADERS, timeout=10)
-        soup = BeautifulSoup(response.text, 'html.parser')
+        with sync_playwright() as p:
+            browser = p.chromium.launch(
+                headless=True,
+                args=["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"]
+            )
+            page = browser.new_page(
+                user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+            )
+            page.goto(url, timeout=30000, wait_until="networkidle")
+            page.wait_for_timeout(3000)
+            html = page.content()
+            browser.close()
+        soup = BeautifulSoup(html, 'html.parser')
         items = soup.select('a.vrow.column:not(.notice)')
         for item in items[:100]:
             title_tag = item.select_one('.col-title .title')
@@ -453,6 +465,7 @@ def crawl_arcalive(keyword):
             date_tag = item.select_one('time')
             posted_at = date_tag.get('datetime') if date_tag else None
             results.append({'title': title, 'url': link, 'posted_at': posted_at, 'views': views, 'comments': 0})
+        print(f"  ✅ 아카라이브 {len(results)}건 수집")
     except Exception as e:
         print(f"  ⚠️ 아카라이브 실패: {e}")
     return results
