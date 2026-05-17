@@ -471,37 +471,106 @@ def crawl_arcalive(keyword):
     return results
 
 
+FMKOREA_BOARDS = {
+    '발로란트': 'valorant', 'valorant': 'valorant',
+    '리그오브레전드': 'lol', 'lol': 'lol',
+    '오버워치': 'overwatch', '오버워치2': 'overwatch',
+    '포트나이트': 'fortnite',
+    '배틀그라운드': 'pubg', 'pubg': 'pubg',
+    '에이펙스': 'apex', '에이펙스 레전드': 'apex',
+    '이터널리턴': 'eternalreturn',
+}
+
+def _fmkorea_scrape_board(board):
+    """전용 게시판 직접 스크래핑"""
+    import re
+    from playwright.sync_api import sync_playwright
+    results = []
+    url = f"https://www.fmkorea.com/{board}"
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True, args=["--no-sandbox","--disable-setuid-sandbox","--disable-dev-shm-usage"])
+        page = browser.new_page(user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
+        page.goto(url, timeout=30000, wait_until="domcontentloaded")
+        page.wait_for_timeout(3000)
+        html = page.content()
+        browser.close()
+    soup = BeautifulSoup(html, 'html.parser')
+    seen = set()
+    for a in soup.find_all('a', href=True):
+        href = a.get('href', '')
+        title = a.get_text(strip=True)
+        if not re.match(r'^/[0-9]{8,}$', href):
+            continue
+        if not title or len(title) < 5 or href in seen:
+            continue
+        seen.add(href)
+        parent = a.find_parent('li') or a.find_parent('tr')
+        posted_at = None
+        if parent:
+            time_tag = parent.find('time')
+            if time_tag:
+                posted_at = time_tag.get('datetime') or parse_date_safe(time_tag.get_text(strip=True))
+        # 공지/고정글 제외 (제목이 [로 시작하는 경우)
+        if title.startswith('['):
+            continue
+        # posted_at 없으면 오늘 날짜로 대체 (게시판 현재 글 기준)
+        if not posted_at:
+            from datetime import datetime, timezone, timedelta
+            kst = timezone(timedelta(hours=9))
+            posted_at = datetime.now(kst).isoformat()
+        results.append({'title': title[:100], 'url': f"https://www.fmkorea.com{href}", 'posted_at': posted_at, 'views': 0, 'comments': 0})
+        if len(results) >= 50:
+            break
+    return results
+
+def _fmkorea_search_gsc(keyword):
+    """Google CSE 검색 - 자사 키워드용"""
+    from playwright.sync_api import sync_playwright
+    import urllib.parse
+    results = []
+    encoded = urllib.parse.quote(keyword)
+    url = f"https://www.fmkorea.com/search.php?act=IS&is_keyword={encoded}#gsc.q={encoded}&gsc.sort=date"
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True, args=["--no-sandbox","--disable-setuid-sandbox","--disable-dev-shm-usage"])
+        page = browser.new_page(user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
+        page.goto(url, timeout=30000, wait_until="domcontentloaded")
+        try:
+            page.wait_for_selector('.gsc-result', timeout=10000)
+        except:
+            browser.close()
+            return results
+        html = page.content()
+        browser.close()
+    soup = BeautifulSoup(html, 'html.parser')
+    seen = set()
+    for r in soup.select('.gsc-result'):
+        title_tag = r.select_one('.gs-title a')
+        if not title_tag:
+            continue
+        href = title_tag.get('href', '')
+        title = title_tag.get_text(strip=True)
+        if 'fmkorea.com' not in href or href in seen:
+            continue
+        if keyword not in title and keyword.lower() not in title.lower():
+            continue
+        seen.add(href)
+        from datetime import datetime, timezone, timedelta
+        kst = timezone(timedelta(hours=9))
+        results.append({'title': title[:100], 'url': href, 'posted_at': datetime.now(kst).isoformat(), 'views': 0, 'comments': 0})
+        if len(results) >= 20:
+            break
+    return results
+
 def crawl_fmkorea(keyword):
     print(f"\n📡 에펨코리아 - {keyword} 수집 중...")
     results = []
     try:
-        encoded = requests.utils.quote(keyword)
-        url = f"https://www.fmkorea.com/search.php?mid=home&act=IS&is_keyword={encoded}"
-        response = requests.get(url, headers=HEADERS, timeout=10)
-        soup = BeautifulSoup(response.text, 'html.parser')
-        seen = set()
-        for a in soup.find_all('a', href=True):
-            title = a.get_text(strip=True)
-            href = a.get('href', '')
-            if keyword.lower() in title.lower() and len(title) > 5 and href not in seen:
-                if 'fmkorea.com' in href or href.startswith('/'):
-                    full_url = href if href.startswith('http') else f"https://www.fmkorea.com{href}"
-                    seen.add(href)
-                    try:
-                        parent = a.find_parent('li') or a.find_parent('tr') or a.find_parent('div')
-                        date_text = None
-                        if parent:
-                            for cls in ['time', 'date', 'regdate', 'datetime']:
-                                dt_el = parent.find(class_=cls) or parent.find('time')
-                                if dt_el:
-                                    date_text = dt_el.get('datetime') or dt_el.get_text(strip=True)
-                                    break
-                        posted_at = parse_date_safe(date_text)
-                    except:
-                        posted_at = None
-                    results.append({'title': title[:100], 'url': full_url, 'posted_at': posted_at, 'views': 0, 'comments': 0})
-            if len(results) >= 50:
-                break
+        board = FMKOREA_BOARDS.get(keyword) or FMKOREA_BOARDS.get(keyword.lower())
+        if board:
+            results = _fmkorea_scrape_board(board)
+        else:
+            results = _fmkorea_search_gsc(keyword)
+        print(f"  ✅ 에펨코리아 {len(results)}건 수집")
     except Exception as e:
         print(f"  ⚠️ 에펨코리아 실패: {e}")
     return results
@@ -597,7 +666,12 @@ def crawl_thisisgame(keyword):
             if "thisisgame.com" not in link:
                 continue
             title = re.sub('<[^>]+>', '', item.get("title", ""))
-            posted_at = item.get("pubDate", None)
+            pub_date_raw = item.get("pubDate", None)
+            try:
+                from email.utils import parsedate_to_datetime
+                posted_at = parsedate_to_datetime(pub_date_raw).isoformat() if pub_date_raw else None
+            except:
+                posted_at = None
             results.append({'title': title[:100], 'url': link, 'posted_at': posted_at, 'views': 0, 'comments': 0})
     except Exception as e:
         print(f"  ⚠️ 디스이즈게임 실패: {e}")
