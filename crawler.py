@@ -400,6 +400,57 @@ def crawl():
             except Exception as e:
                 print(f"  ⚠️ 블로그 요청 실패: {e}")
 
+    # 미니맵 매거진 수집
+    print(f"\n📡 미니맵 매거진 수집 중...")
+    try:
+        resp = requests.get(
+            "https://minimap.net/api/magazine/getMagazineList?sort=DISPLAY_TIME_DESC&l=kr",
+            headers={"User-Agent": "Mozilla/5.0"},
+            timeout=15
+        )
+        if resp.status_code == 200:
+            magazines = resp.json().get("magazineList", [])
+            print(f"  → {len(magazines)}개 발견")
+            for mag in magazines:
+                total += 1
+                title = mag.get("title", "").strip()
+                url = f"https://minimap.net/magazine/{mag.get('url', '')}"
+                summary = mag.get("content", "").strip()
+                display_time = mag.get("displayTime", "")
+                try:
+                    published = display_time.replace(" ", "T") if display_time else None
+                except:
+                    published = None
+                if not title:
+                    filtered += 1
+                    continue
+                if not is_recent(published):
+                    filtered += 1
+                    continue
+                category, _ = get_category(title, summary)
+                tags = get_tags(title, summary)
+                try:
+                    supabase.table("news").insert({
+                        "title": title,
+                        "url": url,
+                        "summary": summary[:500] if summary else None,
+                        "source": "미니맵",
+                        "category": category,
+                        "tags": tags,
+                        "published_at": published,
+                    }).execute()
+                    saved += 1
+                    print(f"  ✅ [{category}] {title[:40]}...")
+                except Exception as e:
+                    if "duplicate" in str(e).lower() or "unique" in str(e).lower():
+                        skipped += 1
+                    else:
+                        print(f"  ❌ 저장 실패: {e}")
+        else:
+            print(f"  ⚠️ 미니맵 매거진 API 오류: {resp.status_code}")
+    except Exception as e:
+        print(f"  ⚠️ 미니맵 매거진 수집 오류: {e}")
+
     print(f"\n✨ 완료! 총 {total}개 수집 / {saved}개 저장 / {skipped}개 중복 / {filtered}개 필터링")
 
 if __name__ == "__main__":
