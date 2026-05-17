@@ -690,6 +690,16 @@ def crawl():
     print(f"\n🔍 커뮤니티 크롤링 시작: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
     total, saved, skipped = 0, 0, 0
 
+    # 기존 수집 URL 캐시 (중복 방지)
+    try:
+        from datetime import timezone, timedelta
+        existing = supabase.table("community_posts").select("url").gte("collected_at", (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()).execute()
+        existing_urls = {r["url"] for r in existing.data if r.get("url")}
+        print(f"  기존 URL {len(existing_urls)}개 캐시 완료")
+    except Exception as e:
+        existing_urls = set()
+        print(f"  URL 캐시 실패: {e}")
+
     crawlers = [
         ("인벤", crawl_inven),
         ("루리웹", crawl_ruliweb),
@@ -719,6 +729,13 @@ def crawl():
                     if not posted_at_val or not is_recent(posted_at_val):
                         skipped += 1
                         continue
+                # URL 중복 체크
+                post_url = post.get('url', '')
+                if post_url and post_url in existing_urls:
+                    skipped += 1
+                    continue
+                if post_url:
+                    existing_urls.add(post_url)
                 success, sentiment = save_post(
                     post['title'], "", post['url'], community,
                     post['views'], post['comments'], keyword, post['posted_at'],
