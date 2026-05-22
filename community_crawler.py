@@ -16,7 +16,6 @@ KEYWORDS = {
         "드림에이지",
         "알케론",
         "arkheron",
-        "Arkheron",
         "아키텍트",
         "드림에이지 아키텍트",
     ],
@@ -234,19 +233,32 @@ def crawl_inven(keyword):
     results = []
     try:
         encoded = requests.utils.quote(keyword)
-        # 커뮤니티+웹진 통합 검색 URL
         url = f"https://www.inven.co.kr/search/community/all/{encoded}"
         response = requests.get(url, headers=HEADERS, timeout=10)
         soup = BeautifulSoup(response.text, 'html.parser')
         seen = set()
-        # fallback: a 태그 중 inven.co.kr 포함 href
         for a in soup.find_all('a', href=True):
             href = a.get('href', '')
             title = a.get_text(strip=True)
-            if 'inven.co.kr' in href and len(title) > 5 and href not in seen:
-                if any(x in href for x in ['/board/', '/article/', '/news/', '/webzine/']):
-                    seen.add(href)
-                    results.append({'title': title[:100], 'url': href, 'posted_at': datetime.now().isoformat(), 'views': 0, 'comments': 0})
+            if 'inven.co.kr' not in href or len(title) <= 5 or href in seen:
+                continue
+            if not any(x in href for x in ['/board/', '/article/', '/news/', '/webzine/']):
+                continue
+            seen.add(href)
+            # 날짜: 부모 요소에서 날짜 텍스트 찾기
+            posted_at = None
+            parent = a.find_parent('li') or a.find_parent('tr') or a.find_parent('div')
+            if parent:
+                for tag in parent.find_all(['span', 'td', 'em', 'p']):
+                    txt = tag.get_text(strip=True)
+                    parsed = parse_date_safe(txt)
+                    if parsed:
+                        posted_at = parsed
+                        break
+            # 날짜 파싱 실패 시 오늘로 처리 (인벤 검색은 최신순)
+            if not posted_at:
+                posted_at = datetime.now().isoformat()
+            results.append({'title': title[:100], 'url': href, 'posted_at': posted_at, 'views': 0, 'comments': 0})
             if len(results) >= 100:
                 break
         print(f"  ✅ 인벤 {len(results)}건 수집")
@@ -269,8 +281,8 @@ def crawl_ruliweb(keyword):
             page = browser.new_page(
                 user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
             )
-            page.goto(url, timeout=30000, wait_until="domcontentloaded")
-            page.wait_for_timeout(2000)
+            page.goto(url, timeout=20000, wait_until="domcontentloaded")
+            page.wait_for_timeout(1500)
             html = page.content()
             browser.close()
         soup = BeautifulSoup(html, 'html.parser')
@@ -433,13 +445,47 @@ def crawl_naver_cafe(keyword):
         print(f"  ⚠️ 네이버 카페 실패: {e}")
     return results
 
+ARCA_CHANNELS = {
+    '포트나이트': 'fortnite',
+    '배틀그라운드': 'pubg',
+    '발로란트': 'valorant',
+    '리그오브레전드': 'leagueoflegends',
+    '오버워치2': 'overwatch',
+    '에이펙스 레전드': 'apexlegends',
+    '이터널리턴': 'eternalreturn',
+}
+
+def _arca_parse_html(html, base_url='https://arca.live'):
+    soup = BeautifulSoup(html, 'html.parser')
+    results = []
+    items = soup.select('a.vrow.column:not(.notice)')
+    for item in items[:50]:
+        title_tag = item.select_one('.col-title .title')
+        if not title_tag:
+            continue
+        title = title_tag.get_text(strip=True)
+        link = base_url + item.get('href', '')
+        view_tag = item.select_one('.col-view')
+        views = int(view_tag.get_text(strip=True).replace(',', '').replace('-', '0') or 0) if view_tag else 0
+        date_tag = item.select_one('time')
+        posted_at = date_tag.get('datetime') if date_tag else None
+        results.append({'title': title, 'url': link, 'posted_at': posted_at, 'views': views, 'comments': 0})
+    return results
+
 def crawl_arcalive(keyword):
     print(f"\n📡 아카라이브 - {keyword} 수집 중...")
     results = []
     try:
         from playwright.sync_api import sync_playwright
         encoded = requests.utils.quote(keyword)
-        url = f"https://arca.live/b/breaking?keyword={encoded}"
+        channel = ARCA_CHANNELS.get(keyword)
+
+        # 크롤링할 URL 목록 구성: 전용채널 + breaking 검색 병행
+        urls = []
+        if channel:
+            urls.append(f"https://arca.live/b/{channel}")  # 전용 채널 최신글
+        urls.append(f"https://arca.live/b/breaking?keyword={encoded}")  # 속보채널 키워드 검색
+
         with sync_playwright() as p:
             browser = p.chromium.launch(
                 headless=True,
@@ -448,23 +494,19 @@ def crawl_arcalive(keyword):
             page = browser.new_page(
                 user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
             )
-            page.goto(url, timeout=30000, wait_until="networkidle")
-            page.wait_for_timeout(3000)
-            html = page.content()
+            seen_urls = set()
+            for url in urls:
+                try:
+                    page.goto(url, timeout=30000, wait_until="domcontentloaded")
+                    page.wait_for_timeout(2000)
+                    html = page.content()
+                    for post in _arca_parse_html(html):
+                        if post['url'] not in seen_urls:
+                            seen_urls.add(post['url'])
+                            results.append(post)
+                except Exception as e:
+                    print(f"  ⚠️ 아카라이브 URL 실패 ({url}): {e}")
             browser.close()
-        soup = BeautifulSoup(html, 'html.parser')
-        items = soup.select('a.vrow.column:not(.notice)')
-        for item in items[:100]:
-            title_tag = item.select_one('.col-title .title')
-            if not title_tag:
-                continue
-            title = title_tag.get_text(strip=True)
-            link = 'https://arca.live' + item.get('href', '')
-            view_tag = item.select_one('.col-view')
-            views = int(view_tag.get_text(strip=True).replace(',', '').replace('-', '0') or 0) if view_tag else 0
-            date_tag = item.select_one('time')
-            posted_at = date_tag.get('datetime') if date_tag else None
-            results.append({'title': title, 'url': link, 'posted_at': posted_at, 'views': views, 'comments': 0})
         print(f"  ✅ 아카라이브 {len(results)}건 수집")
     except Exception as e:
         print(f"  ⚠️ 아카라이브 실패: {e}")
@@ -490,8 +532,8 @@ def _fmkorea_scrape_board(board):
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True, args=["--no-sandbox","--disable-setuid-sandbox","--disable-dev-shm-usage"])
         page = browser.new_page(user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
-        page.goto(url, timeout=30000, wait_until="domcontentloaded")
-        page.wait_for_timeout(3000)
+        page.goto(url, timeout=20000, wait_until="domcontentloaded")
+        page.wait_for_timeout(1500)
         html = page.content()
         browser.close()
     soup = BeautifulSoup(html, 'html.parser')
@@ -510,8 +552,8 @@ def _fmkorea_scrape_board(board):
             time_tag = parent.find('time')
             if time_tag:
                 posted_at = time_tag.get('datetime') or parse_date_safe(time_tag.get_text(strip=True))
-        # 공지/고정글 제외 (제목이 [로 시작하는 경우)
-        if title.startswith('['):
+        # 공지/고정글 제외 (공지, 필독, 안내 키워드 포함된 경우만)
+        if title.startswith('[') and any(x in title for x in ['공지', '필독', '안내', '운영', '이벤트공지', 'notice']):
             continue
         # posted_at 없으면 오늘 날짜로 대체 (게시판 현재 글 기준)
         if not posted_at:
@@ -677,18 +719,17 @@ def crawl_thisisgame(keyword):
         print(f"  ⚠️ 디스이즈게임 실패: {e}")
     return results
 
-def is_recent(posted_at, hours=72):
+def is_recent(posted_at, hours=36):
+    """posted_at이 현재로부터 hours 시간 이내인지 확인 (KST 기준)"""
     if not posted_at:
         return False
     try:
         from datetime import timezone, timedelta
-        import pytz
         pub = datetime.fromisoformat(str(posted_at).replace("Z", "+00:00"))
         if pub.tzinfo is None:
             pub = pub.replace(tzinfo=timezone.utc)
-        kst = pytz.timezone('Asia/Seoul')
-        today_kst = datetime.now(kst).date()
-        return pub.astimezone(kst).date() >= today_kst
+        now_utc = datetime.now(timezone.utc)
+        return (now_utc - pub).total_seconds() <= hours * 3600
     except:
         return False  # 파싱 실패 시 수집 안 함
 
