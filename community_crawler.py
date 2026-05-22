@@ -728,16 +728,14 @@ def is_recent(posted_at, hours=36):
     if not posted_at:
         return False
     try:
-        import pytz
-        from datetime import timedelta
-        kst = pytz.timezone('Asia/Seoul')
+        from datetime import timezone, timedelta
+        KST = timezone(timedelta(hours=9))
         pub = datetime.fromisoformat(str(posted_at).replace("Z", "+00:00"))
         if pub.tzinfo is None:
-            # parse_date_safe 결과는 KST 기준 → KST로 localize
-            pub = kst.localize(pub)
+            pub = pub.replace(tzinfo=KST)  # parse_date_safe 결과는 KST 기준
         else:
-            pub = pub.astimezone(kst)
-        now_kst = datetime.now(kst)
+            pub = pub.astimezone(KST)
+        now_kst = datetime.now(KST)
         return (now_kst - pub).total_seconds() <= hours * 3600
     except:
         return False  # 파싱 실패 시 수집 안 함
@@ -749,9 +747,9 @@ def crawl():
     # 당일 수집 URL 캐시 (같은 실행 내 중복 방지)
     # 30일 캐시 → 당일로 축소: 과거 URL이 새 글 수집을 막는 문제 해결
     try:
-        import pytz
-        kst = pytz.timezone('Asia/Seoul')
-        today_start = datetime.now(kst).strftime('%Y-%m-%dT00:00:00+09:00')
+        from datetime import timezone, timedelta
+        KST = timezone(timedelta(hours=9))
+        today_start = datetime.now(KST).strftime('%Y-%m-%dT00:00:00+09:00')
         existing = supabase.table("community_posts").select("url").gte("collected_at", today_start).execute()
         existing_urls = {r["url"] for r in existing.data if r.get("url")}
         print(f"  오늘 수집 URL {len(existing_urls)}개 캐시 완료")
