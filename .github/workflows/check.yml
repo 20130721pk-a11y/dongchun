@@ -4,53 +4,14 @@ on:
 jobs:
   check:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - run: pip install supabase requests
-      - name: 수집 현황 체크 및 결과 커밋
-        run: |
-          python3 << 'EOF'
-          import os, json, base64, requests
-          from datetime import datetime, timezone, timedelta
-          from collections import Counter
-          from supabase import create_client
-
-          supabase = create_client(os.environ["SUPABASE_URL"], os.environ["SUPABASE_KEY"])
-          kst = timezone(timedelta(hours=9))
-          today = datetime.now(kst).strftime('%Y-%m-%d')
-
-          rows = supabase.table("community_posts").select("community,keyword,posted_at,collected_at") \
-              .gte("collected_at", f"{today}T00:00:00+09:00").limit(2000).execute().data
-          rows7 = supabase.table("community_posts").select("collected_at") \
-              .gte("collected_at", (datetime.now(kst)-timedelta(days=7)).strftime('%Y-%m-%d')) \
-              .limit(5000).execute().data
-
-          result = {
-              "checked_at": datetime.now(kst).strftime('%Y-%m-%d %H:%M KST'),
-              "today_total": len(rows),
-              "posted_at_null": sum(1 for r in rows if not r.get("posted_at")),
-              "by_community": dict(sorted(Counter(r["community"] for r in rows).items(), key=lambda x: -x[1])),
-              "by_keyword":   dict(sorted(Counter(r["keyword"]   for r in rows).items(), key=lambda x: -x[1])),
-              "daily_7d":     dict(sorted(Counter(r["collected_at"][:10] for r in rows7).items()))
-          }
-
-          content_str = json.dumps(result, ensure_ascii=False, indent=2)
-          encoded = base64.b64encode(content_str.encode()).decode()
-
-          token = os.environ["GH_TOKEN"]
-          headers = {"Authorization": f"token {token}", "Content-Type": "application/json"}
-          r = requests.get("https://api.github.com/repos/20130721pk-a11y/dongchun/contents/check_result.json", headers=headers)
-          sha = r.json().get("sha", "")
-          body = {"message": "stats: 수집 현황", "content": encoded}
-          if sha: body["sha"] = sha
-          requests.put("https://api.github.com/repos/20130721pk-a11y/dongchun/contents/check_result.json", headers=headers, json=body)
-          print("완료:", content_str)
-          EOF
+      - run: pip install requests beautifulsoup4 playwright
+      - run: python -m playwright install chromium --with-deps
+      - run: python debug_crawlers.py
         env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
