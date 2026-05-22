@@ -50,16 +50,22 @@ def parse_date_safe(date_str):
         # YYYYMMDD
         if len(s) == 8 and s.isdigit():
             return f"{s[:4]}-{s[4:6]}-{s[6:]}"
-        # yyyy.mm.dd or yyyy/mm/dd
         import re
+        # yyyy.mm.dd or yyyy/mm/dd (시간 포함도 처리)
         m = re.search(r'(20\d{2})[./\-](\d{1,2})[./\-](\d{1,2})', s)
         if m:
             return f"{m.group(1)}-{m.group(2).zfill(2)}-{m.group(3).zfill(2)}"
         # mm.dd (올해)
         m2 = re.search(r'^(\d{1,2})\.(\d{1,2})\.?$', s)
         if m2:
-            from datetime import datetime
             return f"{datetime.now().year}-{m2.group(1).zfill(2)}-{m2.group(2).zfill(2)}"
+        # HH:MM or HH:MM:SS → 오늘 날짜로 처리
+        m3 = re.search(r'^\d{1,2}:\d{2}', s)
+        if m3:
+            return datetime.now().strftime('%Y-%m-%d') + 'T' + s
+        # 상대 시간 표현 ("방금", "N분 전", "N시간 전") → 오늘
+        if any(x in s for x in ['방금', '분 전', '시간 전', '초 전', '방금전']):
+            return datetime.now().isoformat()
         return None
     except:
         return None
@@ -720,7 +726,19 @@ def crawl():
             print(f"  → {len(posts)}개 발견")
             for post in posts:
                 total += 1
-                if not is_game_related(post['title']):
+                # 검색 키워드가 제목에 포함된 경우 게임 관련성 필터 바이패스
+                title_lower = post['title'].lower()
+                keyword_in_title = keyword.lower() in title_lower or any(
+                    alias in title_lower for alias in {
+                        '드림에이지': ['drimage'], '알케론': ['arkheron'],
+                        'arkheron': ['알케론'], '아키텍트': [],
+                        '배틀그라운드': ['pubg','배그'], '포트나이트': ['fortnite'],
+                        '발로란트': ['valorant'], '리그오브레전드': ['lol','롤'],
+                        '에이펙스 레전드': ['apex'], '이터널리턴': ['eternal return'],
+                        '오버워치2': ['overwatch','오버워치'],
+                    }.get(keyword, [])
+                )
+                if not keyword_in_title and not is_game_related(post['title']):
                     skipped += 1
                     continue
                 # 날짜 필터: 네이트판은 날짜 없어도 허용, 나머지는 당일만
