@@ -327,7 +327,7 @@ def crawl_dcinside(keyword):
             urls_to_crawl = [f"https://gall.dcinside.com/mgallery/board/lists/?id=arkheron&page={page}" for page in range(1, 4)]
             for url in urls_to_crawl:
                 from bs4 import BeautifulSoup
-                response = requests.get(url, headers=HEADERS, timeout=10)
+                response = requests.get(url, headers=HEADERS, timeout=20)
                 soup = BeautifulSoup(response.text, 'html.parser')
                 items = soup.select('tr.ub-content')
                 if not items:
@@ -389,7 +389,11 @@ def crawl_dcinside(keyword):
             from bs4 import BeautifulSoup
             for page in range(1, 4):
                 url = f"https://gall.dcinside.com/mgallery/board/lists/?id={gall_id}&page={page}"
-                response = requests.get(url, headers=HEADERS, timeout=10)
+                try:
+                    response = requests.get(url, headers=HEADERS, timeout=20)
+                except Exception as te:
+                    print(f"  ⚠️ 디시인사이드 타임아웃 ({url}): {te}")
+                    break
                 soup = BeautifulSoup(response.text, 'html.parser')
                 items = soup.select('tr.ub-content')
                 if not items:
@@ -724,12 +728,17 @@ def is_recent(posted_at, hours=36):
     if not posted_at:
         return False
     try:
-        from datetime import timezone, timedelta
+        import pytz
+        from datetime import timedelta
+        kst = pytz.timezone('Asia/Seoul')
         pub = datetime.fromisoformat(str(posted_at).replace("Z", "+00:00"))
         if pub.tzinfo is None:
-            pub = pub.replace(tzinfo=timezone.utc)
-        now_utc = datetime.now(timezone.utc)
-        return (now_utc - pub).total_seconds() <= hours * 3600
+            # parse_date_safe 결과는 KST 기준 → KST로 localize
+            pub = kst.localize(pub)
+        else:
+            pub = pub.astimezone(kst)
+        now_kst = datetime.now(kst)
+        return (now_kst - pub).total_seconds() <= hours * 3600
     except:
         return False  # 파싱 실패 시 수집 안 함
 
@@ -737,12 +746,15 @@ def crawl():
     print(f"\n🔍 커뮤니티 크롤링 시작: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
     total, saved, skipped = 0, 0, 0
 
-    # 기존 수집 URL 캐시 (중복 방지)
+    # 당일 수집 URL 캐시 (같은 실행 내 중복 방지)
+    # 30일 캐시 → 당일로 축소: 과거 URL이 새 글 수집을 막는 문제 해결
     try:
-        from datetime import timezone, timedelta
-        existing = supabase.table("community_posts").select("url").gte("collected_at", (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()).execute()
+        import pytz
+        kst = pytz.timezone('Asia/Seoul')
+        today_start = datetime.now(kst).strftime('%Y-%m-%dT00:00:00+09:00')
+        existing = supabase.table("community_posts").select("url").gte("collected_at", today_start).execute()
         existing_urls = {r["url"] for r in existing.data if r.get("url")}
-        print(f"  기존 URL {len(existing_urls)}개 캐시 완료")
+        print(f"  오늘 수집 URL {len(existing_urls)}개 캐시 완료")
     except Exception as e:
         existing_urls = set()
         print(f"  URL 캐시 실패: {e}")
