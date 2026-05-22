@@ -232,35 +232,31 @@ def crawl_inven(keyword):
     print(f"\n📡 인벤 - {keyword} 수집 중...")
     results = []
     try:
-        encoded = requests.utils.quote(keyword)
-        url = f"https://www.inven.co.kr/search/community/all/{encoded}"
-        response = requests.get(url, headers=HEADERS, timeout=10)
-        soup = BeautifulSoup(response.text, 'html.parser')
-        seen = set()
-        for a in soup.find_all('a', href=True):
-            href = a.get('href', '')
-            title = a.get_text(strip=True)
-            if 'inven.co.kr' not in href or len(title) <= 5 or href in seen:
+        client_id = os.getenv("NAVER_CLIENT_ID")
+        client_secret = os.getenv("NAVER_CLIENT_SECRET")
+        if not client_id:
+            return results
+        headers = {**HEADERS, "X-Naver-Client-Id": client_id, "X-Naver-Client-Secret": client_secret}
+        # 네이버 검색 API로 inven.co.kr 결과만 필터링
+        params = {"query": f"{keyword} site:inven.co.kr", "display": 100, "sort": "date"}
+        resp = requests.get("https://openapi.naver.com/v1/search/webkr.json", headers=headers, params=params, timeout=10)
+        if resp.status_code != 200:
+            # webkr 안되면 news로 fallback
+            params2 = {"query": f"{keyword} inven", "display": 100, "sort": "date"}
+            resp = requests.get("https://openapi.naver.com/v1/search/news.json", headers=headers, params=params2, timeout=10)
+        import re
+        for item in resp.json().get("items", []):
+            link = item.get("originallink", item.get("link", ""))
+            if "inven.co.kr" not in link:
                 continue
-            if not any(x in href for x in ['/board/', '/article/', '/news/', '/webzine/']):
-                continue
-            seen.add(href)
-            # 날짜: 부모 요소에서 날짜 텍스트 찾기
-            posted_at = None
-            parent = a.find_parent('li') or a.find_parent('tr') or a.find_parent('div')
-            if parent:
-                for tag in parent.find_all(['span', 'td', 'em', 'p']):
-                    txt = tag.get_text(strip=True)
-                    parsed = parse_date_safe(txt)
-                    if parsed:
-                        posted_at = parsed
-                        break
-            # 날짜 파싱 실패 시 오늘로 처리 (인벤 검색은 최신순)
-            if not posted_at:
-                posted_at = datetime.now().isoformat()
-            results.append({'title': title[:100], 'url': href, 'posted_at': posted_at, 'views': 0, 'comments': 0})
-            if len(results) >= 100:
-                break
+            title = re.sub('<[^>]+>', '', item.get("title", ""))
+            pub_raw = item.get("pubDate", None)
+            try:
+                from email.utils import parsedate_to_datetime
+                posted_at = parsedate_to_datetime(pub_raw).isoformat() if pub_raw else None
+            except:
+                posted_at = None
+            results.append({'title': title[:100], 'url': link, 'posted_at': posted_at, 'views': 0, 'comments': 0})
         print(f"  ✅ 인벤 {len(results)}건 수집")
     except Exception as e:
         print(f"  ⚠️ 인벤 실패: {e}")
@@ -281,8 +277,8 @@ def crawl_ruliweb(keyword):
             page = browser.new_page(
                 user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
             )
-            page.goto(url, timeout=20000, wait_until="domcontentloaded")
-            page.wait_for_timeout(1500)
+            page.goto(url, timeout=20000, wait_until="networkidle")
+            page.wait_for_timeout(2000)
             html = page.content()
             browser.close()
         soup = BeautifulSoup(html, 'html.parser')
@@ -498,10 +494,15 @@ def crawl_arcalive(keyword):
             page = browser.new_page(
                 user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
             )
+            try:
+                from playwright_stealth import stealth_sync
+                stealth_sync(page)
+            except ImportError:
+                pass
             seen_urls = set()
             for url in urls:
                 try:
-                    page.goto(url, timeout=30000, wait_until="domcontentloaded")
+                    page.goto(url, timeout=30000, wait_until="networkidle")
                     page.wait_for_timeout(2000)
                     html = page.content()
                     for post in _arca_parse_html(html):
@@ -536,8 +537,13 @@ def _fmkorea_scrape_board(board):
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True, args=["--no-sandbox","--disable-setuid-sandbox","--disable-dev-shm-usage"])
         page = browser.new_page(user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
-        page.goto(url, timeout=20000, wait_until="domcontentloaded")
-        page.wait_for_timeout(1500)
+        try:
+            from playwright_stealth import stealth_sync
+            stealth_sync(page)
+        except ImportError:
+            pass
+        page.goto(url, timeout=20000, wait_until="networkidle")
+        page.wait_for_timeout(2000)
         html = page.content()
         browser.close()
     soup = BeautifulSoup(html, 'html.parser')
@@ -579,7 +585,12 @@ def _fmkorea_search_gsc(keyword):
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True, args=["--no-sandbox","--disable-setuid-sandbox","--disable-dev-shm-usage"])
         page = browser.new_page(user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
-        page.goto(url, timeout=30000, wait_until="domcontentloaded")
+        try:
+            from playwright_stealth import stealth_sync
+            stealth_sync(page)
+        except ImportError:
+            pass
+        page.goto(url, timeout=30000, wait_until="networkidle")
         try:
             page.wait_for_selector('.gsc-result', timeout=10000)
         except:
