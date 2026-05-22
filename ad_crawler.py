@@ -45,7 +45,13 @@ def crawl_google_ads(competitor, keywords, region="KR"):
         a = GoogleAds(region=region)
         data = None
         for keyword in keywords:
+            try:
+                suggestions = a.get_all_search_suggestions(keyword)
+                print(f"    [DEBUG] {competitor}[{region}] '{keyword}' suggestions={len(suggestions)}건: {str(suggestions)[:200]}")
+            except Exception as se:
+                print(f"    [DEBUG] {competitor}[{region}] suggestions 오류: {se}")
             data = a.get_creative_Ids(keyword, 20)
+            print(f"    [DEBUG] {competitor}[{region}] creative_ids={len(data.get('Creative_Ids',[]) if data else [])}건 ad_count={data.get('Ad Count',0) if data else 0}")
             if data and data.get("Creative_Ids"):
                 print(f"    Google {competitor} [{region}]: 키워드='{keyword}' 매칭")
                 break
