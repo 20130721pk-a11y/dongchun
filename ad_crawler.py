@@ -24,26 +24,35 @@ def save_ad(platform,competitor,title,description,url,thumbnail,published_at,ad_
 
 
 GOOGLE_COMPETITORS = {
-    "포트나이트":     {"query": "Epic Games",            "label": "Epic Games(포트나이트)"},
-    "배틀그라운드":   {"query": "Krafton",               "label": "Krafton(배틀그라운드)"},
-    "발로란트":       {"query": "Riot Games",            "label": "Riot Games(발로란트)"},
-    "리그오브레전드": {"query": "Riot Games",            "label": "Riot Games(리그오브레전드)"},
-    "오버워치2":      {"query": "Blizzard Entertainment","label": "Blizzard(오버워치2)"},
-    "에이펙스 레전드":{"query": "Electronic Arts",       "label": "EA(에이펙스 레전드)"},
-    "이터널리턴":     {"query": "Nimble Neuron",         "label": "Nimble Neuron(이터널리턴)"},
+    "포트나이트":     {"queries": ["Epic Games"],                              "label": "Epic Games(포트나이트)"},
+    "배틀그라운드":   {"queries": ["PUBG Corporation", "Krafton", "PUBG"],   "label": "Krafton(배틀그라운드)"},
+    "발로란트":       {"queries": ["Riot Games"],                              "label": "Riot Games(발로란트)"},
+    "리그오브레전드": {"queries": ["Riot Games"],                              "label": "Riot Games(리그오브레전드)"},
+    "오버워치2":      {"queries": ["Blizzard Entertainment"],                  "label": "Blizzard(오버워치2)"},
+    "에이펙스 레전드":{"queries": ["Electronic Arts"],                         "label": "EA(에이펙스 레전드)"},
+    "이터널리턴":     {"queries": ["Nimble Neuron", "Eternal Return", "이터널리턴"], "label": "Nimble Neuron(이터널리턴)"},
 }
 
 TARGET_REGIONS = ["KR", "US", "JP", "TW", "GB", "DE", "BR"]
 
-def crawl_google_ads(competitor, keyword, region="KR"):
-    """Google Ads Transparency Center 크롤링"""
+def crawl_google_ads(competitor, keywords, region="KR"):
+    """Google Ads Transparency Center 크롤링 (키워드 fallback 지원)"""
+    if isinstance(keywords, str):
+        keywords = [keywords]
     results = []
     try:
         from GoogleAds import GoogleAds
         a = GoogleAds(region=region)
-        data = a.get_creative_Ids(keyword, 20)
+        data = None
+        for keyword in keywords:
+            data = a.get_creative_Ids(keyword, 20)
+            if data and data.get("Creative_Ids"):
+                print(f"    Google {competitor} [{region}]: 키워드='{keyword}' 매칭")
+                break
+            else:
+                print(f"    Google {competitor} [{region}]: '{keyword}' 0건, 다음 키워드 시도")
         if not data or not data.get("Creative_Ids"):
-            print(f"    Google {competitor} [{region}]: 0건")
+            print(f"    Google {competitor} [{region}]: 모든 키워드 0건")
             return results
         adv_id = data["Advertisor Id"]
         for cid in data["Creative_Ids"][:10]:
@@ -77,7 +86,7 @@ def crawl_google_ads(competitor, keyword, region="KR"):
                     "region": region,
                 })
             except Exception as e:
-                pass
+                print(f"    brief 오류 (cid={cid}): {e}")
         print(f"    Google {competitor} [{region}]: {len(results)}건")
     except Exception as e:
         print(f"    Google 오류 ({competitor}, {region}): {e}")
@@ -200,7 +209,10 @@ def crawl():
         fb_page = info["fb_page"]
         # Google 광고만 수집 (권역별)
         for region in TARGET_REGIONS:
-            for ad in crawl_google_ads(GOOGLE_COMPETITORS[competitor]['label'] if competitor in GOOGLE_COMPETITORS else competitor, GOOGLE_COMPETITORS[competitor]['query'] if competitor in GOOGLE_COMPETITORS else competitor, region=region):
+            g = GOOGLE_COMPETITORS.get(competitor, {})
+            g_label = g.get("label", competitor)
+            g_queries = g.get("queries", [competitor])
+            for ad in crawl_google_ads(g_label, g_queries, region=region):
                 save_ad(ad['platform'],ad['competitor'],ad['title'],ad['description'],ad['url'],ad['thumbnail'],ad['published_at'],ad['ad_type'],region=ad.get('region',''))
     print("완료")
 if __name__=="__main__":crawl()
