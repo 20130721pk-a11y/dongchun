@@ -45,13 +45,7 @@ def crawl_google_ads(competitor, keywords, region="KR"):
         a = GoogleAds(region=region)
         data = None
         for keyword in keywords:
-            try:
-                suggestions = a.get_all_search_suggestions(keyword)
-                print(f"    [DEBUG] {competitor}[{region}] '{keyword}' suggestions={len(suggestions)}건: {str(suggestions)[:200]}")
-            except Exception as se:
-                print(f"    [DEBUG] {competitor}[{region}] suggestions 오류: {se}")
             data = a.get_creative_Ids(keyword, 20)
-            print(f"    [DEBUG] {competitor}[{region}] creative_ids={len(data.get('Creative_Ids',[]) if data else [])}건 ad_count={data.get('Ad Count',0) if data else 0}")
             if data and data.get("Creative_Ids"):
                 print(f"    Google {competitor} [{region}]: 키워드='{keyword}' 매칭")
                 break
@@ -62,14 +56,15 @@ def crawl_google_ads(competitor, keywords, region="KR"):
             return results
         adv_id = data["Advertisor Id"]
         for cid in data["Creative_Ids"][:10]:
+            ad_url = f"https://adstransparency.google.com/advertiser/{adv_id}/creative/{cid}?region={region}"
             try:
                 brief = a.get_breif_ads(adv_id, cid)
                 if not brief:
-                    continue
+                    raise ValueError("brief 응답 없음")
                 ad_link = brief.get("Ad Link","")
                 ad_format = brief.get("Ad Format","")
                 last_shown = brief.get("Last Shown","")
-                # 최근 90일 이내 광고만 수집
+                # 최근 365일 이내 광고만 수집
                 if last_shown:
                     try:
                         from datetime import date
@@ -78,21 +73,31 @@ def crawl_google_ads(competitor, keywords, region="KR"):
                             continue
                     except:
                         pass
-                # 썸네일: 이미지는 직접 URL, 영상은 투명성 센터 링크
                 thumbnail = ad_link if ad_format == "Image" else ""
                 results.append({
                     "platform": "Google",
                     "competitor": competitor,
                     "title": f"{data.get('Advertisor',keyword)}",
                     "description": f"형식: {ad_format} | 마지막 노출: {last_shown}",
-                    "url": f"https://adstransparency.google.com/advertiser/{adv_id}/creative/{cid}?region={region}",
+                    "url": ad_url,
                     "thumbnail": thumbnail,
                     "published_at": last_shown or None,
                     "ad_type": ad_format,
                     "region": region,
                 })
             except Exception as e:
-                print(f"    brief 오류 (cid={cid}): {e}")
+                print(f"    brief 오류 (cid={cid}): {e} → fallback 저장")
+                results.append({
+                    "platform": "Google",
+                    "competitor": competitor,
+                    "title": f"{data.get('Advertisor', competitor)}",
+                    "description": f"광고 상세 로드 실패 (cid={cid})",
+                    "url": ad_url,
+                    "thumbnail": "",
+                    "published_at": None,
+                    "ad_type": "Unknown",
+                    "region": region,
+                })
         print(f"    Google {competitor} [{region}]: {len(results)}건")
     except Exception as e:
         print(f"    Google 오류 ({competitor}, {region}): {e}")
