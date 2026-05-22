@@ -15,3 +15,10 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+      - name: 결과 커밋
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add check_result.json
+          git commit -m "stats: 수집 현황 결과" || echo "변경 없음"
+          git push
