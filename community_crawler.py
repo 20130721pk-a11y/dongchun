@@ -283,10 +283,19 @@ def crawl_ruliweb(keyword):
             browser.close()
         soup = BeautifulSoup(html, 'html.parser')
         seen = set()
-        # 루리웹 검색 결과: tr.item 또는 .list_body tr
-        rows = soup.select('tr.item') or soup.select('.board_list_table tbody tr')
+        # 루리웹 검색 결과: 다양한 selector 시도
+        rows = (soup.select('tr.item') or
+                soup.select('.board_list_table tbody tr') or
+                soup.select('table.table_common tbody tr') or
+                soup.select('.result_list li') or
+                soup.select('li.result_item'))
+        print(f"    루리웹 rows: {len(rows)}개, total_tr: {len(soup.find_all('tr'))}")
         for row in rows:
-            title_tag = row.select_one('a.deco') or row.select_one('td.subject a') or row.select_one('a[href*="/read/"]')
+            title_tag = (row.select_one('a.deco') or
+                        row.select_one('td.subject a') or
+                        row.select_one('a[href*="/read/"]') or
+                        row.select_one('a.subject') or
+                        row.select_one('.subject a'))
             if not title_tag:
                 continue
             title = title_tag.get_text(strip=True)
@@ -502,7 +511,7 @@ def crawl_arcalive(keyword):
             seen_urls = set()
             for url in urls:
                 try:
-                    page.goto(url, timeout=30000, wait_until="networkidle")
+                    page.goto(url, timeout=20000, wait_until="domcontentloaded")
                     page.wait_for_timeout(2000)
                     html = page.content()
                     for post in _arca_parse_html(html):
@@ -542,8 +551,8 @@ def _fmkorea_scrape_board(board):
             stealth_sync(page)
         except ImportError:
             pass
-        page.goto(url, timeout=20000, wait_until="networkidle")
-        page.wait_for_timeout(2000)
+        page.goto(url, timeout=20000, wait_until="domcontentloaded")
+        page.wait_for_timeout(1500)
         html = page.content()
         browser.close()
     soup = BeautifulSoup(html, 'html.parser')
@@ -590,7 +599,7 @@ def _fmkorea_search_gsc(keyword):
             stealth_sync(page)
         except ImportError:
             pass
-        page.goto(url, timeout=30000, wait_until="networkidle")
+        page.goto(url, timeout=30000, wait_until="domcontentloaded")
         try:
             page.wait_for_selector('.gsc-result', timeout=10000)
         except:
