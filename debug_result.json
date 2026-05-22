@@ -1,0 +1,42 @@
+{
+  "inven": {
+    "status": 404,
+    "total_inven_links": 10,
+    "board_links": [],
+    "html_sample": "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0 Transitional//EN\">\n<html>\n<head>\n<title>인벤 | 종합 게임 커뮤니티 INVEN</title>\n<meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\" />\n<meta name=\"Keywords\" content=\"\" />\n<meta name=\"Description\" content=\"\" />\n<link rel=\"shortcut icon\" type=\"image/x-icon\" href=\"https://www.inven.co.kr/favicon.ico?v=20250314\" />\n<script type=\"text/javascript\" src=\"https://www.inven.co.kr/common/lib/js/common_new.js?v=150518\"></script>\n<style type=\"text/css\">\nbody {",
+    "title": "인벤 | 종합 게임 커뮤니티 INVEN"
+  },
+  "ruliweb": {
+    "tr_item_count": 0,
+    "board_rows_count": 0,
+    "total_tr": 4,
+    "title": "통합검색",
+    "html_sample": "<!DOCTYPE html><html lang=\"ko\" dir=\"ltr\"><head>\n\t<meta charset=\"utf-8\">\n\t\t<title>통합검색</title>\n    \t\t<link rel=\"canonical\" href=\"https://bbs.ruliweb.com/search\">\n\t\t<link rel=\"alternate\" media=\"only screen and (max-width: 640px)\" href=\"https://m.ruliweb.com/search\">\n        \t\t\t<meta name=\"robots\" content=\"noindex\">\n\t\t\t<meta name=\"googlebot\" content=\"noindex\">\n\t\t    \t<meta name=\"google-site-verification\" content=\"l6x3iJcAJcYHUmgeJzx1vE-N8c71Y_RPsn0TWmMyLCo\">\n\t\n\t<meta name=\"viewport\" content=\"width=1159\">\n    <meta name=\"content-language\" content=\"ko\">\n    <meta http-equiv=\"content-language\" content=\"ko\">\n\n\t<meta name=\"Referrer\" content=\"origin\">\n\t<meta http-equiv=\"Content-Script-Type\" content=\"text/javascript\">\n\t<meta http-equiv=\"Content-Style-Type\" content=\"text/css\">\n\t<meta http-equiv=\"X-UA",
+    "sample_tr_classes": [
+      "",
+      "",
+      "",
+      ""
+    ]
+  },
+  "arcalive": {
+    "vrow_column_count": 0,
+    "vrow_any_count": 0,
+    "total_a": 2,
+    "title": "Just a moment...",
+    "html_sample": "<!DOCTYPE html><html lang=\"en-US\" dir=\"ltr\"><head><title>Just a moment...</title><meta http-equiv=\"Content-Type\" content=\"text/html; charset=UTF-8\"><meta http-equiv=\"X-UA-Compatible\" content=\"IE=Edge\"><meta name=\"robots\" content=\"noindex,nofollow\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><meta http-equiv=\"content-security-policy\" content=\"default-src 'none'; script-src 'nonce-8nGh6XIVeKqtpmRmSGFqNc' 'unsafe-eval' https://challenges.cloudflare.com; script-src-attr 'none'; style-src 'unsafe-inline'; img-src 'self' https://challenges.cloudflare.com; connect-src 'self' https://challenges.cloudflare.com; frame-src 'self' https://challenges.cloudflare.com blob:; child-src 'self' https://challenges.cloudflare.com blob:; worker-src blob:; form-action http: https:; base-ur",
+    "sample_a_classes": [
+      "",
+      "['footer-text']"
+    ]
+  },
+  "fmkorea": {
+    "digit_links_count": 0,
+    "digit_links_sample": [],
+    "all_hrefs_sample": [
+      "javascript:location.reload()"
+    ],
+    "title": "에펨코리아 보안 시스템",
+    "html_sample": "<html><head>\n<meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\">\n<title>에펨코리아 보안 시스템</title>\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<style type=\"text/css\">\n    .main_t {height: 100%; width: 100%; border: 0;}\n    .main_t td {text-align: center;}\n    .main_t td.info {font-size: 25px; height: 100%; text-align: center; vertical-align: top; padding-top: 2em;}\n    .main_t td.info b {font-size: 28px;}\n    .sign { color: #ccc; margin-top: 5em;}\n    .sign a { color: #ccc; }\n\n    @media only screen and (max-width: 768px) {\n        .main_t td.info {font-size: 20px;}\n        .main_t td.info b {font-size: 25px;}\n    }\n</style>\n<script src=\"https://challenges.cloudflare.com/turnstile/v0/api.js\" async=\"\" defer=\"\"></script>\n<script>\n    window.needPost = 0;\n  "
+  }
+}
