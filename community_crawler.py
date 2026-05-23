@@ -238,12 +238,12 @@ def crawl_inven(keyword):
             return results
         headers = {**HEADERS, "X-Naver-Client-Id": client_id, "X-Naver-Client-Secret": client_secret}
         # 네이버 검색 API로 inven.co.kr 결과만 필터링
+        # webkr: 인벤 커뮤니티 글 / cafearticle: 인벤 카페 / news: 인벤 뉴스
         params = {"query": f"{keyword} site:inven.co.kr", "display": 100, "sort": "date"}
         resp = requests.get("https://openapi.naver.com/v1/search/webkr.json", headers=headers, params=params, timeout=10)
-        if resp.status_code != 200:
-            # webkr 안되면 news로 fallback
-            params2 = {"query": f"{keyword} inven", "display": 100, "sort": "date"}
-            resp = requests.get("https://openapi.naver.com/v1/search/news.json", headers=headers, params=params2, timeout=10)
+        if resp.status_code != 200 or not resp.json().get("items"):
+            params2 = {"query": f"{keyword}", "display": 100, "sort": "date"}
+            resp = requests.get("https://openapi.naver.com/v1/search/cafearticle.json", headers=headers, params=params2, timeout=10)
         import re
         for item in resp.json().get("items", []):
             link = item.get("originallink", item.get("link", ""))
@@ -277,7 +277,12 @@ def crawl_ruliweb(keyword):
             page = browser.new_page(
                 user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
             )
-            page.goto(url, timeout=20000, wait_until="networkidle")
+            page.goto(url, timeout=20000, wait_until="domcontentloaded")
+            # AJAX 결과 로딩 대기
+            try:
+                page.wait_for_selector('tr.item, .board_list_table tbody tr, table tbody tr', timeout=8000)
+            except:
+                pass
             page.wait_for_timeout(2000)
             html = page.content()
             browser.close()
@@ -288,7 +293,8 @@ def crawl_ruliweb(keyword):
                 soup.select('.board_list_table tbody tr') or
                 soup.select('table.table_common tbody tr') or
                 soup.select('.result_list li') or
-                soup.select('li.result_item'))
+                soup.select('li.result_item') or
+                [row for row in soup.select('table tbody tr') if row.select_one('a[href*="/read/"]')])
         print(f"    루리웹 rows: {len(rows)}개, total_tr: {len(soup.find_all('tr'))}")
         for row in rows:
             title_tag = (row.select_one('a.deco') or
@@ -789,6 +795,10 @@ def crawl():
         ("미니맵", crawl_minimap),
     ]
 
+    # 게임 필터 바이패스할 소스 (해당 게임 전용 소스라 필터 불필요)
+    GAME_SOURCE_BYPASS = {'네이버카페', '디시인사이드', '아카라이브', '에펨코리아', '미니맵'}
+    skip_game, skip_date, skip_url, skip_db = 0, 0, 0, 0
+
     for keyword in get_all_keywords():
         category = get_category(keyword)
         print(f"\n[{category}] 키워드: {keyword}")
@@ -797,31 +807,32 @@ def crawl():
             print(f"  → {len(posts)}개 발견")
             for post in posts:
                 total += 1
-                # 검색 키워드가 제목에 포함된 경우 게임 관련성 필터 바이패스
-                title_lower = post['title'].lower()
-                keyword_in_title = keyword.lower() in title_lower or any(
-                    alias in title_lower for alias in {
-                        '드림에이지': ['drimage'], '알케론': ['arkheron'],
-                        'arkheron': ['알케론'], '아키텍트': [],
-                        '배틀그라운드': ['pubg','배그'], '포트나이트': ['fortnite'],
-                        '발로란트': ['valorant'], '리그오브레전드': ['lol','롤'],
-                        '에이펙스 레전드': ['apex'], '이터널리턴': ['eternal return'],
-                        '오버워치2': ['overwatch','오버워치'],
-                    }.get(keyword, [])
-                )
-                if not keyword_in_title and not is_game_related(post['title']):
-                    skipped += 1
-                    continue
-                # 날짜 필터: 네이트판은 날짜 없어도 허용, 나머지는 당일만
+                # 게임 관련성 필터 (전용 소스는 바이패스)
+                if community not in GAME_SOURCE_BYPASS:
+                    title_lower = post['title'].lower()
+                    keyword_in_title = keyword.lower() in title_lower or any(
+                        alias in title_lower for alias in {
+                            '드림에이지': ['drimage'], '알케론': ['arkheron'],
+                            'arkheron': ['알케론'], '아키텍트': [],
+                            '배틀그라운드': ['pubg','배그'], '포트나이트': ['fortnite'],
+                            '발로란트': ['valorant'], '리그오브레전드': ['lol','롤'],
+                            '에이펙스 레전드': ['apex'], '이터널리턴': ['eternal return'],
+                            '오버워치2': ['overwatch','오버워치'],
+                        }.get(keyword, [])
+                    )
+                    if not keyword_in_title and not is_game_related(post['title']):
+                        skip_game += 1; skipped += 1
+                        continue
+                # 날짜 필터: 네이트판은 날짜 없어도 허용, 나머지는 36시간 이내
                 posted_at_val = post.get('posted_at')
                 if community != '네이트판':
                     if not posted_at_val or not is_recent(posted_at_val):
-                        skipped += 1
+                        skip_date += 1; skipped += 1
                         continue
-                # URL 중복 체크
+                # URL 중복 체크 (당일 캐시)
                 post_url = post.get('url', '')
                 if post_url and post_url in existing_urls:
-                    skipped += 1
+                    skip_url += 1; skipped += 1
                     continue
                 if post_url:
                     existing_urls.add(post_url)
@@ -834,10 +845,11 @@ def crawl():
                     saved += 1
                     print(f"  ✅ [{category}][{sentiment}] {post['title'][:40]}...")
                 else:
-                    skipped += 1
+                    skip_db += 1; skipped += 1
                 time.sleep(0.3)
 
-    print(f"\n✨ 완료! 총 {total}개 수집 / {saved}개 저장 / {skipped}개 중복 스킵")
+    print(f"\n✨ 완료! 총 {total}개 수집 / {saved}개 저장 / {skipped}개 스킵")
+    print(f"   스킵 분류: 게임필터={skip_game} / 날짜={skip_date} / URL중복={skip_url} / DB중복={skip_db}")
 
 if __name__ == "__main__":
     crawl()
