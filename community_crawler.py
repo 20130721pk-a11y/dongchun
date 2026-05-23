@@ -50,10 +50,14 @@ def parse_date_safe(date_str):
         if len(s) == 8 and s.isdigit():
             return f"{s[:4]}-{s[4:6]}-{s[6:]}"
         import re
-        # yyyy.mm.dd or yyyy/mm/dd (시간 포함도 처리)
+        # yyyy.mm.dd or yyyy/mm/dd or yyyy-mm-dd (시간 포함도 처리)
         m = re.search(r'(20\d{2})[./\-](\d{1,2})[./\-](\d{1,2})', s)
         if m:
             return f"{m.group(1)}-{m.group(2).zfill(2)}-{m.group(3).zfill(2)}"
+        # YY.MM.DD (디시인사이드 날짜 형식: "26.05.23")
+        m_yy = re.match(r'^(\d{2})\.(\d{2})\.(\d{2})$', s)
+        if m_yy:
+            return f"20{m_yy.group(1)}-{m_yy.group(2)}-{m_yy.group(3)}"
         # mm.dd (올해)
         m2 = re.search(r'^(\d{1,2})\.(\d{1,2})\.?$', s)
         if m2:
@@ -362,14 +366,7 @@ def crawl_dcinside(keyword):
                     comments = int(comment_tag.get_text(strip=True).replace(',', '').replace('-', '0') or 0) if comment_tag else 0
                     date_tag = item.select_one('td.gall_date')
                     posted_at_raw = date_tag.get('title', date_tag.get_text(strip=True)) if date_tag else None
-                    try:
-                        if posted_at_raw and len(posted_at_raw) == 8 and '/' in posted_at_raw:
-                            parts = posted_at_raw.split('/')
-                            posted_at = f"20{parts[0]}-{parts[1]}-{parts[2]}"
-                        else:
-                            posted_at = posted_at_raw
-                    except:
-                        posted_at = None
+                    posted_at = parse_date_safe(posted_at_raw) or datetime.now().isoformat()
                     if title and len(title) > 2:
                         results.append({'title': title[:100], 'url': href, 'posted_at': posted_at, 'views': views, 'comments': comments})
                 if len(results) >= 100:
@@ -428,14 +425,7 @@ def crawl_dcinside(keyword):
                     comments = int(comment_tag.get_text(strip=True).replace(',', '').replace('-', '0') or 0) if comment_tag else 0
                     date_tag = item.select_one('td.gall_date')
                     posted_at_raw = date_tag.get('title', date_tag.get_text(strip=True)) if date_tag else None
-                    try:
-                        if posted_at_raw and len(posted_at_raw) == 8 and '/' in posted_at_raw:
-                            parts = posted_at_raw.split('/')
-                            posted_at = f"20{parts[0]}-{parts[1]}-{parts[2]}"
-                        else:
-                            posted_at = posted_at_raw
-                    except:
-                        posted_at = None
+                    posted_at = parse_date_safe(posted_at_raw) or datetime.now().isoformat()
                     if title and len(title) > 2:
                         results.append({'title': title[:100], 'url': href, 'posted_at': posted_at, 'views': views, 'comments': comments})
                 if len(results) >= 100:
@@ -466,8 +456,11 @@ def crawl_naver_cafe(keyword):
                 posted_at = datetime.now().isoformat()
             dates_seen.append(postdate_raw)
             results.append({'title': title, 'url': link, 'posted_at': posted_at, 'views': 0, 'comments': 0})
-        if dates_seen:
-            print(f"    카페 날짜 범위: {min(d for d in dates_seen if d)} ~ {max(d for d in dates_seen if d)}")
+        valid_dates = [d for d in dates_seen if d]
+        if valid_dates:
+            print(f"    카페 날짜 범위: {min(valid_dates)} ~ {max(valid_dates)}")
+        else:
+            print(f"    카페 날짜 범위: 날짜 정보 없음 ({len(results)}건)")
     except Exception as e:
         print(f"  ⚠️ 네이버 카페 실패: {e}")
     return results
