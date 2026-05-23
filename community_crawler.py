@@ -4,7 +4,9 @@ import os
 import json
 from dotenv import load_dotenv
 from supabase import create_client
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+
+KST = timezone(timedelta(hours=9))  # 전역 KST 상수
 import time
 
 load_dotenv()
@@ -48,7 +50,7 @@ def parse_date_safe(date_str):
         s = str(date_str).strip()
         # YYYYMMDD
         if len(s) == 8 and s.isdigit():
-            return f"{s[:4]}-{s[4:6]}-{s[6:]}"
+            return f"{s[:4]}-{s[4:6]}-{s[6:]}T00:00:00+09:00"  # YYYYMMDD → KST 자정
         import re
         # yyyy.mm.dd or yyyy/mm/dd or yyyy-mm-dd (시간 포함도 처리)
         m = re.search(r'(20\d{2})[./\-](\d{1,2})[./\-](\d{1,2})', s)
@@ -61,14 +63,14 @@ def parse_date_safe(date_str):
         # mm.dd (올해)
         m2 = re.search(r'^(\d{1,2})\.(\d{1,2})\.?$', s)
         if m2:
-            return f"{datetime.now().year}-{m2.group(1).zfill(2)}-{m2.group(2).zfill(2)}"
+            return f"{datetime.now(KST).year}-{m2.group(1).zfill(2)}-{m2.group(2).zfill(2)}"
         # HH:MM or HH:MM:SS → 오늘 날짜로 처리
         m3 = re.search(r'^\d{1,2}:\d{2}', s)
         if m3:
-            return datetime.now().strftime('%Y-%m-%d') + 'T' + s
+            return datetime.now(KST).strftime('%Y-%m-%d') + 'T' + s
         # 상대 시간 표현 ("방금", "N분 전", "N시간 전") → 오늘
         if any(x in s for x in ['방금', '분 전', '시간 전', '초 전', '방금전']):
-            return datetime.now().isoformat()
+            return datetime.now(KST).isoformat()
         return None
     except:
         return None
@@ -264,7 +266,7 @@ def crawl_inven(keyword):
                 except:
                     posted_at = parse_date_safe(str(pub_raw))
             if not posted_at:
-                posted_at = datetime.now().isoformat()  # fallback: 오늘
+                posted_at = datetime.now(KST).isoformat()  # fallback: 오늘
             results.append({'title': title[:100], 'url': link, 'posted_at': posted_at, 'views': 0, 'comments': 0})
         print(f"  ✅ 인벤 {len(results)}건 수집")
     except Exception as e:
@@ -300,9 +302,9 @@ def crawl_ruliweb(keyword):
                     from email.utils import parsedate_to_datetime
                     posted_at = parsedate_to_datetime(str(pub_raw)).isoformat() if pub_raw and '@' not in str(pub_raw) else parse_date_safe(str(pub_raw))
                 except:
-                    posted_at = parse_date_safe(str(pub_raw)) if pub_raw else datetime.now().isoformat()
+                    posted_at = parse_date_safe(str(pub_raw)) if pub_raw else datetime.now(KST).isoformat()
                 if not posted_at:
-                    posted_at = datetime.now().isoformat()
+                    posted_at = datetime.now(KST).isoformat()
                 results.append({'title': title[:100], 'url': link, 'posted_at': posted_at, 'views': 0, 'comments': 0})
             if results:
                 break
@@ -348,7 +350,7 @@ def crawl_dcinside(keyword):
                     comments = int(comment_tag.get_text(strip=True).replace(',', '').replace('-', '0') or 0) if comment_tag else 0
                     date_tag = item.select_one('td.gall_date')
                     posted_at_raw = date_tag.get('title', date_tag.get_text(strip=True)) if date_tag else None
-                    posted_at = parse_date_safe(posted_at_raw) or datetime.now().isoformat()
+                    posted_at = parse_date_safe(posted_at_raw) or datetime.now(KST).isoformat()
                     if title and len(title) > 2:
                         results.append({'title': title[:100], 'url': href, 'posted_at': posted_at, 'views': views, 'comments': comments})
                 if len(results) >= 100:
@@ -407,7 +409,7 @@ def crawl_dcinside(keyword):
                     comments = int(comment_tag.get_text(strip=True).replace(',', '').replace('-', '0') or 0) if comment_tag else 0
                     date_tag = item.select_one('td.gall_date')
                     posted_at_raw = date_tag.get('title', date_tag.get_text(strip=True)) if date_tag else None
-                    posted_at = parse_date_safe(posted_at_raw) or datetime.now().isoformat()
+                    posted_at = parse_date_safe(posted_at_raw) or datetime.now(KST).isoformat()
                     if title and len(title) > 2:
                         results.append({'title': title[:100], 'url': href, 'posted_at': posted_at, 'views': views, 'comments': comments})
                 if len(results) >= 100:
@@ -435,7 +437,7 @@ def crawl_naver_cafe(keyword):
             postdate_raw = item.get("postdate", None)
             posted_at = parse_date_safe(postdate_raw)
             if not posted_at:
-                posted_at = datetime.now().isoformat()
+                posted_at = datetime.now(KST).isoformat()
             dates_seen.append(postdate_raw)
             results.append({'title': title, 'url': link, 'posted_at': posted_at, 'views': 0, 'comments': 0})
         valid_dates = [d for d in dates_seen if d]
@@ -467,9 +469,9 @@ def crawl_arcalive(keyword):
                 continue
             title = re.sub('<[^>]+>', '', item.get("title", ""))
             pub_raw = item.get("postdate") or item.get("pubDate")
-            posted_at = parse_date_safe(str(pub_raw)) if pub_raw else datetime.now().isoformat()
+            posted_at = parse_date_safe(str(pub_raw)) if pub_raw else datetime.now(KST).isoformat()
             if not posted_at:
-                posted_at = datetime.now().isoformat()
+                posted_at = datetime.now(KST).isoformat()
             results.append({'title': title[:100], 'url': link, 'posted_at': posted_at, 'views': 0, 'comments': 0})
         results = results[:100]
         print(f"  ✅ 아카라이브 {len(results)}건 수집")
@@ -497,9 +499,9 @@ def crawl_fmkorea(keyword):
                 continue
             title = re.sub('<[^>]+>', '', item.get("title", ""))
             pub_raw = item.get("postdate") or item.get("pubDate")
-            posted_at = parse_date_safe(str(pub_raw)) if pub_raw else datetime.now().isoformat()
+            posted_at = parse_date_safe(str(pub_raw)) if pub_raw else datetime.now(KST).isoformat()
             if not posted_at:
-                posted_at = datetime.now().isoformat()
+                posted_at = datetime.now(KST).isoformat()
             results.append({'title': title[:100], 'url': link, 'posted_at': posted_at, 'views': 0, 'comments': 0})
         results = results[:100]
         print(f"  ✅ 에펨코리아 {len(results)}건 수집")
@@ -536,7 +538,19 @@ def crawl_nate(keyword):
                         if txt.isdigit():
                             views = int(txt)
                             break
-                results.append({'title': title[:100], 'url': full_url, 'posted_at': None, 'views': views, 'comments': comments})
+                # 날짜 파싱 시도 (parent 요소에서)
+                posted_at = None
+                if parent:
+                    for tag in parent.find_all(['span', 'em', 'time', 'p']):
+                        txt = tag.get_text(strip=True)
+                        parsed = parse_date_safe(txt)
+                        if parsed and len(parsed) >= 8:
+                            posted_at = parsed
+                            break
+                # 날짜 없으면 오늘로 처리 (2019 등 과거 데이터 방지)
+                if not posted_at:
+                    posted_at = datetime.now(KST).isoformat()
+                results.append({'title': title[:100], 'url': full_url, 'posted_at': posted_at, 'views': views, 'comments': comments})
             if len(results) >= 50:
                 break
     except Exception as e:
@@ -563,7 +577,17 @@ def crawl_minimap(keyword):
             if not title and not content:
                 continue
             try:
-                posted_at = display_time.split(".")[0].replace(" ", "T") if display_time else None
+                if display_time:
+                    # "2026-05-23 12:30:45.123" 또는 "2026.05.23 12:30:45" 등 처리
+                    dt_clean = display_time.strip()
+                    # ISO 형식이면 밀리초만 제거
+                    if 'T' in dt_clean or '-' in dt_clean[:8]:
+                        posted_at = dt_clean.split('.')[0] if '.' in dt_clean and len(dt_clean.split('.')[0]) > 10 else dt_clean
+                    else:
+                        # "2026.05.23 12:30:45" → parse_date_safe 활용
+                        posted_at = parse_date_safe(dt_clean.split(' ')[0]) or datetime.now(KST).isoformat()
+                else:
+                    posted_at = None
             except:
                 posted_at = None
             post_url = f"https://minimap.net/post/{post_sn}" if post_sn else ""
@@ -615,27 +639,22 @@ def is_recent(posted_at, hours=72):
     if not posted_at:
         return False
     try:
-        from datetime import timezone, timedelta
-        KST = timezone(timedelta(hours=9))
         pub = datetime.fromisoformat(str(posted_at).replace("Z", "+00:00"))
         if pub.tzinfo is None:
-            pub = pub.replace(tzinfo=KST)  # parse_date_safe 결과는 KST 기준
+            pub = pub.replace(tzinfo=KST)
         else:
             pub = pub.astimezone(KST)
-        now_kst = datetime.now(KST)
-        return (now_kst - pub).total_seconds() <= hours * 3600
+        return (datetime.now(KST) - pub).total_seconds() <= hours * 3600
     except:
-        return False  # 파싱 실패 시 수집 안 함
+        return False
 
 def crawl():
-    print(f"\n🔍 커뮤니티 크롤링 시작: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
+    print(f"\n🔍 커뮤니티 크롤링 시작: {datetime.now(KST).strftime('%Y-%m-%d %H:%M')}")
     total, saved, skipped = 0, 0, 0
 
     # 당일 수집 URL 캐시 (같은 실행 내 중복 방지)
     # 30일 캐시 → 당일로 축소: 과거 URL이 새 글 수집을 막는 문제 해결
     try:
-        from datetime import timezone, timedelta
-        KST = timezone(timedelta(hours=9))
         cache_start = (datetime.now(KST) - timedelta(days=3)).strftime('%Y-%m-%dT00:00:00+09:00')
         existing = supabase.table("community_posts").select("url").gte("collected_at", cache_start).limit(5000).execute()
         existing_urls = {r["url"] for r in existing.data if r.get("url")}
@@ -687,10 +706,9 @@ def crawl():
                         continue
                 # 날짜 필터: 네이트판은 날짜 없어도 허용, 나머지는 36시간 이내
                 posted_at_val = post.get('posted_at')
-                if community != '네이트판':
-                    if not posted_at_val or not is_recent(posted_at_val):
-                        skip_date += 1; skipped += 1
-                        continue
+                if not posted_at_val or not is_recent(posted_at_val):
+                    skip_date += 1; skipped += 1
+                    continue
                 # URL 중복 체크 (당일 캐시)
                 post_url = post.get('url', '')
                 if post_url and post_url in existing_urls:
