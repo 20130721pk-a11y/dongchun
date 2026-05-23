@@ -2,19 +2,19 @@ import requests
 import os
 from dotenv import load_dotenv
 from supabase import create_client
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 load_dotenv()
 
 supabase = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")
 
+KST = timezone(timedelta(hours=9))
+
 KEYWORDS = {
     "자사": ["드림에이지", "알케론", "arkheron", "드림에이지 아키텍트"],
     "경쟁사": ["포트나이트", "리그오브레전드", "이터널리턴", "배틀그라운드", "발로란트", "오버워치2", "에이펙스 레전드"],
-
 }
-
 
 GAME_KEYWORDS = [
     "게임", "게이머", "게임사", "플레이", "출시", "업데이트", "패치", "서버",
@@ -41,10 +41,25 @@ def is_game_related(title, summary=""):
         return True
     return any(kw.lower() in text for kw in GAME_KEYWORDS)
 
+def is_today_kst(published_str):
+    """published_at(ISO8601) 문자열이 오늘(KST) 날짜인지 확인"""
+    if not published_str:
+        return True  # 날짜 없으면 통과
+    try:
+        pub_dt = datetime.fromisoformat(published_str.replace("Z", "+00:00"))
+        return pub_dt.astimezone(KST).date() >= datetime.now(KST).date()
+    except Exception:
+        return True
+
 def search_youtube(keyword, max_results=50, live_only=False, max_pages=1):
     url = "https://www.googleapis.com/youtube/v3/search"
     all_items = []
     next_page_token = None
+
+    if not YOUTUBE_API_KEY:
+        print("  ❌ YOUTUBE_API_KEY 환경변수 없음")
+        return []
+
     for _ in range(max_pages):
         params = {
             "part": "snippet",
@@ -63,6 +78,16 @@ def search_youtube(keyword, max_results=50, live_only=False, max_pages=1):
         try:
             response = requests.get(url, params=params, timeout=10)
             data = response.json()
+
+            # ✅ API 오류 명시적 로깅
+            if "error" in data:
+                err = data["error"]
+                code = err.get("code", "?")
+                msg = err.get("message", "")
+                reason = err.get("errors", [{}])[0].get("reason", "")
+                print(f"  ❌ YouTube API 오류 [{code}] {reason}: {msg[:80]}")
+                break
+
             items = data.get("items", [])
             all_items.extend(items)
             next_page_token = data.get("nextPageToken")
@@ -96,6 +121,9 @@ def get_tags(title, summary=""):
 
 def crawl_youtube():
     print(f"\n🎥 유튜브 크롤링 시작: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
+    if not YOUTUBE_API_KEY:
+        print("❌ YOUTUBE_API_KEY 없음. 크롤링 중단.")
+        return
     total, saved, skipped = 0, 0, 0
 
     # 일반 영상 수집
@@ -127,17 +155,10 @@ def crawl_youtube():
                 if not is_game_related(title):
                     skipped += 1
                     continue
-                # 당일(KST) 게시물만 수집
-                if published:
-                    try:
-                        import pytz
-                        pub_dt = datetime.fromisoformat(published.replace("Z", "+00:00"))
-                        kst = pytz.timezone('Asia/Seoul')
-                        if pub_dt.astimezone(kst).date() < datetime.now(kst).date():
-                            skipped += 1
-                            continue
-                    except:
-                        pass
+
+                if not is_today_kst(published):
+                    skipped += 1
+                    continue
 
                 try:
                     supabase.table("streams").insert({
@@ -164,7 +185,6 @@ def crawl_youtube():
     live_keywords = {
         "자사": ["드림에이지", "알케론", "arkheron", "드림에이지 아키텍트"],
         "경쟁사": ["포트나이트", "발로란트", "배틀그라운드", "이터널리턴", "리그오브레전드", "오버워치2", "에이펙스 레전드"],
-    
     }
     for category, keywords in live_keywords.items():
         for keyword in keywords:
@@ -188,17 +208,10 @@ def crawl_youtube():
                 if not is_game_related(title):
                     skipped += 1
                     continue
-                # 당일(KST) 게시물만 수집
-                if published:
-                    try:
-                        import pytz
-                        pub_dt = datetime.fromisoformat(published.replace("Z", "+00:00"))
-                        kst = pytz.timezone('Asia/Seoul')
-                        if pub_dt.astimezone(kst).date() < datetime.now(kst).date():
-                            skipped += 1
-                            continue
-                    except:
-                        pass
+
+                if not is_today_kst(published):
+                    skipped += 1
+                    continue
 
                 try:
                     supabase.table("streams").insert({
