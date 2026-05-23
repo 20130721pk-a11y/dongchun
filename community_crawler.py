@@ -637,8 +637,12 @@ def crawl_thisisgame(keyword):
         print(f"  ⚠️ 디스이즈게임 실패: {e}")
     return results
 
-def is_recent(posted_at, hours=72):
-    """posted_at이 현재로부터 hours 시간 이내인지 확인 (KST 기준)"""
+def is_recent_day(posted_at, days=1):
+    """posted_at이 KST 기준 오늘 또는 최근 days일 이내인지 확인
+    - days=1: 오늘 + 어제 (23:59에 올라온 글이 다음날 크롤링에 누락되는 케이스 방지)
+    - days=3: 웹진 전용 (네이버 색인 지연 고려)
+    - fallback(datetime.now)으로 설정된 오늘 날짜도 통과
+    """
     if not posted_at:
         return False
     try:
@@ -647,7 +651,9 @@ def is_recent(posted_at, hours=72):
             pub = pub.replace(tzinfo=KST)
         else:
             pub = pub.astimezone(KST)
-        return (datetime.now(KST) - pub).total_seconds() <= hours * 3600
+        today_kst = datetime.now(KST).date()
+        earliest = today_kst - timedelta(days=days)
+        return pub.date() >= earliest
     except:
         return False
 
@@ -707,11 +713,12 @@ def crawl():
                     if not keyword_in_title and not is_game_related(post['title']):
                         skip_game += 1; skipped += 1
                         continue
-                # 날짜 필터: 네이트판은 날짜 없어도 허용, 나머지는 36시간 이내
+                # 날짜 필터: KST 날짜 기준 (롤링 시간 윈도우 → 날짜 기준으로 교체)
+                # 웹진(네이버 색인 지연 고려): 오늘 포함 최근 3일
+                # 커뮤니티: 오늘 + 어제 (심야 게시글 누락 방지)
                 posted_at_val = post.get('posted_at')
-                # 웹진(뉴스기사)은 7일, 커뮤니티는 72시간 기준
-                max_hours = 168 if community in {'디스이즈게임', '인벤', '루리웹'} else 72
-                if not posted_at_val or not is_recent(posted_at_val, hours=max_hours):
+                max_days = 3 if community in {'디스이즈게임', '인벤', '루리웹'} else 1
+                if not posted_at_val or not is_recent_day(posted_at_val, days=max_days):
                     skip_date += 1; skipped += 1
                     continue
                 # URL 중복 체크 (당일 캐시)
