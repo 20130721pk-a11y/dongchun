@@ -275,68 +275,50 @@ def crawl_ruliweb(keyword):
     print(f"\n📡 루리웹 - {keyword} 수집 중...")
     results = []
     try:
-        from playwright.sync_api import sync_playwright
-        encoded = requests.utils.quote(keyword)
-        url = f"https://bbs.ruliweb.com/search?q={encoded}&searchType=subject&orderType=latest"
-        with sync_playwright() as p:
-            browser = p.chromium.launch(
-                headless=True,
-                args=["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"]
-            )
-            page = browser.new_page(
-                user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
-            )
-            page.goto(url, timeout=20000, wait_until="domcontentloaded")
-            # AJAX 결과 로딩 대기
-            try:
-                page.wait_for_selector('tr.item, .board_list_table tbody tr, table tbody tr', timeout=8000)
-            except:
-                pass
-            page.wait_for_timeout(2000)
-            html = page.content()
-            browser.close()
-        soup = BeautifulSoup(html, 'html.parser')
-        seen = set()
-        # 루리웹 검색 결과: 다양한 selector 시도
-        rows = (soup.select('tr.item') or
-                soup.select('.board_list_table tbody tr') or
-                soup.select('table.table_common tbody tr') or
-                soup.select('.result_list li') or
-                soup.select('li.result_item') or
-                [row for row in soup.select('table tbody tr') if row.select_one('a[href*="/read/"]')])
-        print(f"    루리웹 rows: {len(rows)}개, total_tr: {len(soup.find_all('tr'))}")
-        for row in rows:
-            title_tag = (row.select_one('a.deco') or
-                        row.select_one('td.subject a') or
-                        row.select_one('a[href*="/read/"]') or
-                        row.select_one('a.subject') or
-                        row.select_one('.subject a'))
-            if not title_tag:
+        client_id = os.getenv("NAVER_CLIENT_ID")
+        client_secret = os.getenv("NAVER_CLIENT_SECRET")
+        if not client_id:
+            print("  ⚠️ 루리웹: NAVER_CLIENT_ID 없음")
+            return results
+        headers = {**HEADERS, "X-Naver-Client-Id": client_id, "X-Naver-Client-Secret": client_secret}
+        import re
+        for search_type, endpoint in [
+            (f"{keyword} site:bbs.ruliweb.com", "https://openapi.naver.com/v1/search/webkr.json"),
+            (f"{keyword} ruliweb",               "https://openapi.naver.com/v1/search/news.json"),
+        ]:
+            params = {"query": search_type, "display": 50, "sort": "date"}
+            resp = requests.get(endpoint, headers=headers, params=params, timeout=10)
+            if resp.status_code != 200:
                 continue
-            title = title_tag.get_text(strip=True)
-            href = title_tag.get('href', '')
-            if not href.startswith('http'):
-                href = 'https://bbs.ruliweb.com' + href
-            if not title or len(title) < 5 or href in seen:
-                continue
-            seen.add(href)
-            date_tag = row.select_one('td.time') or row.select_one('.time')
-            posted_at_raw = date_tag.get_text(strip=True) if date_tag else None
-            posted_at = parse_date_safe(posted_at_raw) or datetime.now().isoformat()
-            view_tag = row.select_one('td.hit') or row.select_one('.hit')
-            views = 0
-            if view_tag:
+            for item in resp.json().get("items", []):
+                link = item.get("originallink") or item.get("link", "")
+                if "ruliweb.com" not in link:
+                    continue
+                title = re.sub('<[^>]+>', '', item.get("title", ""))
+                pub_raw = item.get("pubDate") or item.get("postdate")
                 try:
-                    views = int(view_tag.get_text(strip=True).replace(',', ''))
+                    from email.utils import parsedate_to_datetime
+                    posted_at = parsedate_to_datetime(str(pub_raw)).isoformat() if pub_raw and '@' not in str(pub_raw) else parse_date_safe(str(pub_raw))
                 except:
-                    pass
-            results.append({'title': title[:100], 'url': href, 'posted_at': posted_at, 'views': views, 'comments': 0})
-            if len(results) >= 100:
+                    posted_at = parse_date_safe(str(pub_raw)) if pub_raw else datetime.now().isoformat()
+                if not posted_at:
+                    posted_at = datetime.now().isoformat()
+                results.append({'title': title[:100], 'url': link, 'posted_at': posted_at, 'views': 0, 'comments': 0})
+            if results:
                 break
+        # 중복 URL 제거
+        seen = set()
+        unique = []
+        for r in results:
+            if r['url'] not in seen:
+                seen.add(r['url'])
+                unique.append(r)
+        results = unique[:100]
         print(f"  ✅ 루리웹 {len(results)}건 수집")
     except Exception as e:
         print(f"  ⚠️ 루리웹 실패: {e}")
     return results
+
 
 def crawl_dcinside(keyword):
     print(f"\n📡 디시인사이드 - {keyword} 수집 중...")
@@ -465,192 +447,66 @@ def crawl_naver_cafe(keyword):
         print(f"  ⚠️ 네이버 카페 실패: {e}")
     return results
 
-ARCA_CHANNELS = {
-    '포트나이트': 'fortnite',
-    '배틀그라운드': 'pubg',
-    '발로란트': 'valorant',
-    '리그오브레전드': 'leagueoflegends',
-    '오버워치2': 'overwatch',
-    '에이펙스 레전드': 'apexlegends',
-    '이터널리턴': 'eternalreturn',
-}
-
-def _arca_parse_html(html, base_url='https://arca.live'):
-    soup = BeautifulSoup(html, 'html.parser')
-    results = []
-    items = soup.select('a.vrow.column:not(.notice)')
-    for item in items[:50]:
-        title_tag = item.select_one('.col-title .title')
-        if not title_tag:
-            continue
-        title = title_tag.get_text(strip=True)
-        link = base_url + item.get('href', '')
-        view_tag = item.select_one('.col-view')
-        views = int(view_tag.get_text(strip=True).replace(',', '').replace('-', '0') or 0) if view_tag else 0
-        date_tag = item.select_one('time')
-        posted_at = date_tag.get('datetime') if date_tag else None
-        results.append({'title': title, 'url': link, 'posted_at': posted_at, 'views': views, 'comments': 0})
-    return results
 
 def crawl_arcalive(keyword):
     print(f"\n📡 아카라이브 - {keyword} 수집 중...")
     results = []
     try:
-        from playwright.sync_api import sync_playwright
-        encoded = requests.utils.quote(keyword)
-        channel = ARCA_CHANNELS.get(keyword)
-
-        # 크롤링할 URL 목록 구성: 전용채널 + breaking 검색 병행
-        urls = []
-        if channel:
-            urls.append(f"https://arca.live/b/{channel}")  # 전용 채널 최신글
-        urls.append(f"https://arca.live/b/breaking?keyword={encoded}")  # 속보채널 키워드 검색
-
-        with sync_playwright() as p:
-            browser = p.chromium.launch(
-                headless=True,
-                args=["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"]
-            )
-            page = browser.new_page(
-                user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
-            )
-            try:
-                from playwright_stealth import stealth_sync
-                stealth_sync(page)
-            except ImportError:
-                pass
-            seen_urls = set()
-            for url in urls:
-                try:
-                    page.goto(url, timeout=20000, wait_until="domcontentloaded")
-                    page.wait_for_timeout(2000)
-                    html = page.content()
-                    for post in _arca_parse_html(html):
-                        if post['url'] not in seen_urls:
-                            seen_urls.add(post['url'])
-                            results.append(post)
-                except Exception as e:
-                    print(f"  ⚠️ 아카라이브 URL 실패 ({url}): {e}")
-            browser.close()
+        client_id = os.getenv("NAVER_CLIENT_ID")
+        client_secret = os.getenv("NAVER_CLIENT_SECRET")
+        if not client_id:
+            print("  ⚠️ 아카라이브: NAVER_CLIENT_ID 없음")
+            return results
+        headers = {**HEADERS, "X-Naver-Client-Id": client_id, "X-Naver-Client-Secret": client_secret}
+        import re
+        params = {"query": f"{keyword} site:arca.live", "display": 50, "sort": "date"}
+        resp = requests.get("https://openapi.naver.com/v1/search/webkr.json", headers=headers, params=params, timeout=10)
+        for item in resp.json().get("items", []):
+            link = item.get("originallink") or item.get("link", "")
+            if "arca.live" not in link:
+                continue
+            title = re.sub('<[^>]+>', '', item.get("title", ""))
+            pub_raw = item.get("postdate") or item.get("pubDate")
+            posted_at = parse_date_safe(str(pub_raw)) if pub_raw else datetime.now().isoformat()
+            if not posted_at:
+                posted_at = datetime.now().isoformat()
+            results.append({'title': title[:100], 'url': link, 'posted_at': posted_at, 'views': 0, 'comments': 0})
+        results = results[:100]
         print(f"  ✅ 아카라이브 {len(results)}건 수집")
     except Exception as e:
         print(f"  ⚠️ 아카라이브 실패: {e}")
     return results
 
 
-FMKOREA_BOARDS = {
-    '발로란트': 'valorant', 'valorant': 'valorant',
-    '리그오브레전드': 'lol', 'lol': 'lol',
-    '오버워치': 'overwatch', '오버워치2': 'overwatch',
-    '포트나이트': 'fortnite',
-    '배틀그라운드': 'pubg', 'pubg': 'pubg',
-    '에이펙스': 'apex', '에이펙스 레전드': 'apex',
-    '이터널리턴': 'eternalreturn',
-}
-
-def _fmkorea_scrape_board(board):
-    """전용 게시판 직접 스크래핑"""
-    import re
-    from playwright.sync_api import sync_playwright
-    results = []
-    url = f"https://www.fmkorea.com/{board}"
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True, args=["--no-sandbox","--disable-setuid-sandbox","--disable-dev-shm-usage"])
-        page = browser.new_page(user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
-        try:
-            from playwright_stealth import stealth_sync
-            stealth_sync(page)
-        except ImportError:
-            pass
-        page.goto(url, timeout=20000, wait_until="domcontentloaded")
-        page.wait_for_timeout(1500)
-        html = page.content()
-        browser.close()
-    soup = BeautifulSoup(html, 'html.parser')
-    seen = set()
-    for a in soup.find_all('a', href=True):
-        href = a.get('href', '')
-        title = a.get_text(strip=True)
-        if not re.match(r'^/[0-9]{8,}$', href):
-            continue
-        if not title or len(title) < 5 or href in seen:
-            continue
-        seen.add(href)
-        parent = a.find_parent('li') or a.find_parent('tr')
-        posted_at = None
-        if parent:
-            time_tag = parent.find('time')
-            if time_tag:
-                posted_at = time_tag.get('datetime') or parse_date_safe(time_tag.get_text(strip=True))
-        # 공지/고정글 제외 (공지, 필독, 안내 키워드 포함된 경우만)
-        if title.startswith('[') and any(x in title for x in ['공지', '필독', '안내', '운영', '이벤트공지', 'notice']):
-            continue
-        # posted_at 없으면 오늘 날짜로 대체 (게시판 현재 글 기준)
-        if not posted_at:
-            from datetime import datetime, timezone, timedelta
-            kst = timezone(timedelta(hours=9))
-            posted_at = datetime.now(kst).isoformat()
-        results.append({'title': title[:100], 'url': f"https://www.fmkorea.com{href}", 'posted_at': posted_at, 'views': 0, 'comments': 0})
-        if len(results) >= 50:
-            break
-    return results
-
-def _fmkorea_search_gsc(keyword):
-    """Google CSE 검색 - 자사 키워드용"""
-    from playwright.sync_api import sync_playwright
-    import urllib.parse
-    results = []
-    encoded = urllib.parse.quote(keyword)
-    url = f"https://www.fmkorea.com/search.php?act=IS&is_keyword={encoded}#gsc.q={encoded}&gsc.sort=date"
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True, args=["--no-sandbox","--disable-setuid-sandbox","--disable-dev-shm-usage"])
-        page = browser.new_page(user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
-        try:
-            from playwright_stealth import stealth_sync
-            stealth_sync(page)
-        except ImportError:
-            pass
-        page.goto(url, timeout=30000, wait_until="domcontentloaded")
-        try:
-            page.wait_for_selector('.gsc-result', timeout=10000)
-        except:
-            browser.close()
-            return results
-        html = page.content()
-        browser.close()
-    soup = BeautifulSoup(html, 'html.parser')
-    seen = set()
-    for r in soup.select('.gsc-result'):
-        title_tag = r.select_one('.gs-title a')
-        if not title_tag:
-            continue
-        href = title_tag.get('href', '')
-        title = title_tag.get_text(strip=True)
-        if 'fmkorea.com' not in href or href in seen:
-            continue
-        if keyword not in title and keyword.lower() not in title.lower():
-            continue
-        seen.add(href)
-        from datetime import datetime, timezone, timedelta
-        kst = timezone(timedelta(hours=9))
-        results.append({'title': title[:100], 'url': href, 'posted_at': datetime.now(kst).isoformat(), 'views': 0, 'comments': 0})
-        if len(results) >= 20:
-            break
-    return results
-
 def crawl_fmkorea(keyword):
     print(f"\n📡 에펨코리아 - {keyword} 수집 중...")
     results = []
     try:
-        board = FMKOREA_BOARDS.get(keyword) or FMKOREA_BOARDS.get(keyword.lower())
-        if board:
-            results = _fmkorea_scrape_board(board)
-        else:
-            results = _fmkorea_search_gsc(keyword)
+        client_id = os.getenv("NAVER_CLIENT_ID")
+        client_secret = os.getenv("NAVER_CLIENT_SECRET")
+        if not client_id:
+            print("  ⚠️ 에펨코리아: NAVER_CLIENT_ID 없음")
+            return results
+        headers = {**HEADERS, "X-Naver-Client-Id": client_id, "X-Naver-Client-Secret": client_secret}
+        import re
+        params = {"query": f"{keyword} site:fmkorea.com", "display": 50, "sort": "date"}
+        resp = requests.get("https://openapi.naver.com/v1/search/webkr.json", headers=headers, params=params, timeout=10)
+        for item in resp.json().get("items", []):
+            link = item.get("originallink") or item.get("link", "")
+            if "fmkorea.com" not in link:
+                continue
+            title = re.sub('<[^>]+>', '', item.get("title", ""))
+            pub_raw = item.get("postdate") or item.get("pubDate")
+            posted_at = parse_date_safe(str(pub_raw)) if pub_raw else datetime.now().isoformat()
+            if not posted_at:
+                posted_at = datetime.now().isoformat()
+            results.append({'title': title[:100], 'url': link, 'posted_at': posted_at, 'views': 0, 'comments': 0})
+        results = results[:100]
         print(f"  ✅ 에펨코리아 {len(results)}건 수집")
     except Exception as e:
         print(f"  ⚠️ 에펨코리아 실패: {e}")
     return results
+
 
 
 def crawl_nate(keyword):
@@ -801,7 +657,8 @@ def crawl():
     ]
 
     # 게임 필터 바이패스할 소스 (해당 게임 전용 소스라 필터 불필요)
-    GAME_SOURCE_BYPASS = {'네이버카페', '디시인사이드', '아카라이브', '에펨코리아', '미니맵'}
+    # 네이버 API site: 검색 기반 크롤러는 키워드 포함 보장 → 게임필터 바이패스
+    GAME_SOURCE_BYPASS = {'네이버카페', '디시인사이드', '아카라이브', '에펨코리아', '미니맵', '루리웹'}
     skip_game, skip_date, skip_url, skip_db = 0, 0, 0, 0
 
     for keyword in get_all_keywords():
