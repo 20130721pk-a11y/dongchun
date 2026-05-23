@@ -17,80 +17,38 @@ jobs:
         with:
           python-version: '3.11'
       - run: pip install supabase requests -q
-      - name: DB 수집 현황 확인
-        run: |
-          python3 << 'PYEOF'
-          import os, requests
-          from supabase import create_client
-          from datetime import datetime, timezone, timedelta
-          from collections import Counter, defaultdict
-
-          KST = timezone(timedelta(hours=9))
-          sb = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
-          out = []
-          def log(s=""): out.append(s); print(s)
-
-          r = sb.table("community_posts").select("community,keyword,posted_at,collected_at") \
-              .gte("collected_at",(datetime.now(KST)-timedelta(days=7)).isoformat()) \
-              .limit(5000).execute()
-          posts = r.data
-          log(f"최근 7일 총 수집: {len(posts)}건")
-
-          comm_cnt = Counter(p['community'] for p in posts)
-          log("\n[커뮤니티별]")
-          for c,n in sorted(comm_cnt.items(),key=lambda x:-x[1]):
-              log(f"  {c:15}: {n}건")
-
-          date_cnt = defaultdict(int)
-          for p in posts:
-              ct=p.get('collected_at','')
-              if ct:
-                  try:
-                      d=datetime.fromisoformat(ct.replace('Z','+00:00')).astimezone(KST)
-                      date_cnt[d.strftime('%m/%d')] += 1
-                  except: pass
-          log("\n[날짜별 (collected_at)]")
-          for d in sorted(date_cnt): log(f"  {d}: {date_cnt[d]}건")
-
-          kw_cnt = Counter(p['keyword'] for p in posts if p.get('keyword'))
-          log("\n[키워드별 TOP10]")
-          for k,n in kw_cnt.most_common(10): log(f"  {k:20}: {n}건")
-
-          log("\n[네이버 API 테스트]")
-          nid=os.getenv("NAVER_CLIENT_ID"); nsec=os.getenv("NAVER_CLIENT_SECRET")
-          if not nid: log("❌ NAVER_CLIENT_ID 없음!")
-          else:
-              log(f"✅ NAVER_CLIENT_ID: {nid[:8]}***")
-              h={"X-Naver-Client-Id":nid,"X-Naver-Client-Secret":nsec,"User-Agent":"Mozilla/5.0"}
-              for q,ep in [
-                  ("배틀그라운드 site:arca.live","https://openapi.naver.com/v1/search/webkr.json"),
-                  ("배틀그라운드 site:fmkorea.com","https://openapi.naver.com/v1/search/webkr.json"),
-                  ("배틀그라운드 site:inven.co.kr","https://openapi.naver.com/v1/search/webkr.json"),
-                  ("배틀그라운드 site:bbs.ruliweb.com","https://openapi.naver.com/v1/search/webkr.json"),
-                  ("배틀그라운드 thisisgame","https://openapi.naver.com/v1/search/news.json"),
-                  ("배틀그라운드","https://openapi.naver.com/v1/search/cafearticle.json"),
-              ]:
-                  try:
-                      resp=requests.get(ep,headers=h,params={"query":q,"display":5,"sort":"date"},timeout=10)
-                      items=resp.json().get("items",[]) if resp.status_code==200 else []
-                      log(f"  [{resp.status_code}][{len(items)}건] {q}")
-                      if items:
-                          i0=items[0]
-                          log(f"    → {str(i0.get('postdate') or i0.get('pubDate',''))[:20]} | {i0.get('title','')[:50]}")
-                  except Exception as e: log(f"  ❌ {q}: {e}")
-
-          with open("check_result.txt","w",encoding="utf-8") as f:
-              f.write("\n".join(out))
-          PYEOF
+      - name: 진단 실행
+        run: python3 diagnose.py > check_result.txt 2>&1; cat check_result.txt
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           NAVER_CLIENT_ID: ${{ secrets.NAVER_CLIENT_ID }}
           NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
+      - name: DB 통계
+        run: |
+          python3 << 'PYEOF' >> check_result.txt 2>&1
+          import os
+          from supabase import create_client
+          from datetime import datetime, timezone, timedelta
+          from collections import Counter, defaultdict
+          KST = timezone(timedelta(hours=9))
+          sb = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
+          r = sb.table("community_posts").select("community,posted_at,collected_at") \
+              .gte("collected_at",(datetime.now(KST)-timedelta(days=2)).isoformat()) \
+              .limit(5000).execute()
+          posts = r.data
+          print(f"\n최근 2일 수집: {len(posts)}건")
+          comm_cnt = Counter(p['community'] for p in posts)
+          for c,n in sorted(comm_cnt.items(),key=lambda x:-x[1]):
+              print(f"  {c:15}: {n}건")
+          PYEOF
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
       - name: 결과 커밋
         run: |
           git config user.email "action@github.com"
           git config user.name "GitHub Actions"
-          git add check_result.txt
-          git diff --cached --quiet || git commit -m "chore: check result"
+          git add check_result.txt diagnose.py
+          git diff --cached --quiet || git commit -m "chore: diagnose result"
           git push
