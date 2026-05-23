@@ -4,7 +4,7 @@ import os
 import json
 from dotenv import load_dotenv
 from supabase import create_client
-from datetime import datetime
+from datetime import datetime, timedelta
 import time
 
 load_dotenv()
@@ -250,12 +250,17 @@ def crawl_inven(keyword):
             if "inven.co.kr" not in link:
                 continue
             title = re.sub('<[^>]+>', '', item.get("title", ""))
-            pub_raw = item.get("pubDate", None)
-            try:
-                from email.utils import parsedate_to_datetime
-                posted_at = parsedate_to_datetime(pub_raw).isoformat() if pub_raw else None
-            except:
-                posted_at = None
+            # webkr.json은 pubDate 없음 → postdate(YYYYMMDD) 또는 pubDate(RFC2822) 순서로 시도
+            posted_at = None
+            pub_raw = item.get("postdate") or item.get("pubDate")
+            if pub_raw:
+                try:
+                    from email.utils import parsedate_to_datetime
+                    posted_at = parsedate_to_datetime(str(pub_raw)).isoformat()
+                except:
+                    posted_at = parse_date_safe(str(pub_raw))
+            if not posted_at:
+                posted_at = datetime.now().isoformat()  # fallback: 오늘
             results.append({'title': title[:100], 'url': link, 'posted_at': posted_at, 'views': 0, 'comments': 0})
         print(f"  ✅ 인벤 {len(results)}건 수집")
     except Exception as e:
@@ -451,11 +456,18 @@ def crawl_naver_cafe(keyword):
         response = requests.get(url, headers=headers, params=params, timeout=10)
         items = response.json().get("items", [])
         import re
+        dates_seen = []
         for item in items:
             title = re.sub('<[^>]+>', '', item.get("title", ""))
             link = item.get("link", "")
-            posted_at = parse_date_safe(item.get("postdate", None))
+            postdate_raw = item.get("postdate", None)
+            posted_at = parse_date_safe(postdate_raw)
+            if not posted_at:
+                posted_at = datetime.now().isoformat()
+            dates_seen.append(postdate_raw)
             results.append({'title': title, 'url': link, 'posted_at': posted_at, 'views': 0, 'comments': 0})
+        if dates_seen:
+            print(f"    카페 날짜 범위: {min(d for d in dates_seen if d)} ~ {max(d for d in dates_seen if d)}")
     except Exception as e:
         print(f"  ⚠️ 네이버 카페 실패: {e}")
     return results
@@ -749,7 +761,7 @@ def crawl_thisisgame(keyword):
         print(f"  ⚠️ 디스이즈게임 실패: {e}")
     return results
 
-def is_recent(posted_at, hours=36):
+def is_recent(posted_at, hours=72):
     """posted_at이 현재로부터 hours 시간 이내인지 확인 (KST 기준)"""
     if not posted_at:
         return False
@@ -775,10 +787,10 @@ def crawl():
     try:
         from datetime import timezone, timedelta
         KST = timezone(timedelta(hours=9))
-        today_start = datetime.now(KST).strftime('%Y-%m-%dT00:00:00+09:00')
-        existing = supabase.table("community_posts").select("url").gte("collected_at", today_start).execute()
+        cache_start = (datetime.now(KST) - timedelta(days=3)).strftime('%Y-%m-%dT00:00:00+09:00')
+        existing = supabase.table("community_posts").select("url").gte("collected_at", cache_start).limit(5000).execute()
         existing_urls = {r["url"] for r in existing.data if r.get("url")}
-        print(f"  오늘 수집 URL {len(existing_urls)}개 캐시 완료")
+        print(f"  최근 3일 수집 URL {len(existing_urls)}개 캐시 완료")
     except Exception as e:
         existing_urls = set()
         print(f"  URL 캐시 실패: {e}")
