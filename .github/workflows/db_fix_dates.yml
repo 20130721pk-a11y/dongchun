@@ -1,0 +1,90 @@
+name: DB Fix Community Dates (One-time)
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'DRY RUN (true=확인만, false=실제 업데이트)'
+        required: true
+        default: 'true'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install supabase python-dotenv
+      - name: Run DB fix
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          DRY_RUN: ${{ github.event.inputs.dry_run }}
+        run: |
+          python3 -c "
+import os
+from datetime import datetime, timedelta, timezone
+from collections import Counter
+from supabase import create_client
+
+KST = timezone(timedelta(hours=9))
+DRY_RUN = os.getenv('DRY_RUN', 'true').lower() == 'true'
+supabase = create_client(os.getenv('SUPABASE_URL'), os.getenv('SUPABASE_KEY'))
+
+def to_kst_date(ts_str):
+    if not ts_str: return None
+    try:
+        dt = datetime.fromisoformat(str(ts_str).replace('Z', '+00:00'))
+        dt = dt.replace(tzinfo=KST) if dt.tzinfo is None else dt.astimezone(KST)
+        return dt.date()
+    except: return None
+
+print(f'=== community_posts 날짜 정합성 수정 | 모드: {\"DRY RUN\" if DRY_RUN else \"실제 업데이트\"} ===')
+
+all_records, offset = [], 0
+while True:
+    res = supabase.table('community_posts').select('id,community,posted_at,collected_at').not_.is_('posted_at','null').range(offset, offset+999).execute()
+    if not res.data: break
+    all_records.extend(res.data)
+    if len(res.data) < 1000: break
+    offset += 1000
+print(f'총 {len(all_records)}건 조회')
+
+mismatched = [r for r in all_records if to_kst_date(r['posted_at']) and to_kst_date(r['collected_at']) and to_kst_date(r['posted_at']) != to_kst_date(r['collected_at'])]
+print(f'날짜 불일치: {len(mismatched)}건 / 전체 {len(all_records)}건')
+
+by_comm = Counter(r['community'] for r in mismatched)
+print('커뮤니티별:')
+for c, n in by_comm.most_common(): print(f'  {c:15s}: {n}건')
+
+diffs = Counter()
+for r in mismatched:
+    d = (to_kst_date(r['collected_at']) - to_kst_date(r['posted_at'])).days
+    diffs[d] += 1
+print('날짜 차이(일):')
+for d in sorted(diffs): print(f'  +{d}일: {diffs[d]}건')
+
+print('샘플 5건:')
+for r in mismatched[:5]: print(f'  [{r[\"community\"]}] posted={str(r[\"posted_at\"])[:10]} collected={str(r[\"collected_at\"])[:10]}')
+
+if DRY_RUN:
+    print('\\n[DRY RUN] 업데이트 없음. dry_run=false 로 재실행하면 실제 적용됩니다.')
+else:
+    print(f'\\n업데이트 시작: {len(mismatched)}건')
+    ok, fail = 0, 0
+    for i, r in enumerate(mismatched):
+        try:
+            supabase.table('community_posts').update({'collected_at': r['posted_at']}).eq('id', r['id']).execute()
+            ok += 1
+            if (i+1) % 200 == 0: print(f'  {i+1}/{len(mismatched)}건...')
+        except Exception as e:
+            fail += 1
+            print(f'  FAIL id={r[\"id\"]}: {e}')
+    print(f'완료: {ok}건 업데이트 / {fail}건 실패')
+"
