@@ -587,9 +587,9 @@ def crawl_minimap(keyword):
                         # "2026.05.23 12:30:45" → parse_date_safe 활용
                         posted_at = parse_date_safe(dt_clean.split(' ')[0]) or datetime.now(KST).isoformat()
                 else:
-                    posted_at = None
+                    posted_at = datetime.now(KST).isoformat()
             except:
-                posted_at = None
+                posted_at = datetime.now(KST).isoformat()
             post_url = f"https://minimap.net/post/{post_sn}" if post_sn else ""
             results.append({
                 "title": title[:200],
@@ -630,6 +630,7 @@ def crawl_thisisgame(keyword):
             except:
                 posted_at = None
             results.append({'title': title[:100], 'url': link, 'posted_at': posted_at, 'views': 0, 'comments': 0})
+        print(f"  ✅ 디스이즈게임 {len(results)}건 수집")
     except Exception as e:
         print(f"  ⚠️ 디스이즈게임 실패: {e}")
     return results
@@ -706,7 +707,9 @@ def crawl():
                         continue
                 # 날짜 필터: 네이트판은 날짜 없어도 허용, 나머지는 36시간 이내
                 posted_at_val = post.get('posted_at')
-                if not posted_at_val or not is_recent(posted_at_val):
+                # 웹진(뉴스기사)은 7일, 커뮤니티는 72시간 기준
+                max_hours = 168 if community in {'디스이즈게임', '인벤', '루리웹'} else 72
+                if not posted_at_val or not is_recent(posted_at_val, hours=max_hours):
                     skip_date += 1; skipped += 1
                     continue
                 # URL 중복 체크 (당일 캐시)
