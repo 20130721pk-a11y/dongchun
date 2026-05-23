@@ -610,26 +610,28 @@ def crawl_thisisgame(keyword):
     print(f"\n📡 디스이즈게임 - {keyword} 수집 중...")
     results = []
     try:
+        import re as _re
         client_id = os.getenv("NAVER_CLIENT_ID")
         client_secret = os.getenv("NAVER_CLIENT_SECRET")
-        url = "https://openapi.naver.com/v1/search/news.json"
+        # news API 대신 webkr API 사용 (네이버 뉴스 색인에 thisisgame 최신 기사 없음)
+        url = "https://openapi.naver.com/v1/search/webkr.json"
         headers = {**HEADERS, "X-Naver-Client-Id": client_id, "X-Naver-Client-Secret": client_secret}
-        params = {"query": f"{keyword} thisisgame", "display": 100, "sort": "date"}
+        params = {"query": f"site:thisisgame.com {keyword}", "display": 100, "sort": "date"}
         response = requests.get(url, headers=headers, params=params, timeout=10)
         items = response.json().get("items", [])
-        import re
         for item in items:
-            link = item.get("originallink", item.get("link", ""))
+            link = item.get("link", "")
             if "thisisgame.com" not in link:
                 continue
-            title = re.sub('<[^>]+>', '', item.get("title", ""))
-            pub_date_raw = item.get("pubDate", None)
-            try:
-                from email.utils import parsedate_to_datetime
-                posted_at = parsedate_to_datetime(pub_date_raw).isoformat() if pub_date_raw else None
-            except:
-                posted_at = None
-            results.append({'title': title[:100], 'url': link, 'posted_at': posted_at, 'views': 0, 'comments': 0})
+            title = _re.sub('<[^>]+>', '', item.get("title", ""))
+            # webkr postdate는 비어있는 경우 많음 → now(KST) fallback
+            postdate = item.get("postdate", "").strip()
+            if postdate and len(postdate) == 8:
+                posted_at = parse_date_safe(postdate)
+            else:
+                posted_at = datetime.now(KST).isoformat()
+            description = _re.sub('<[^>]+>', '', item.get("description", ""))
+            results.append({'title': title[:100], 'content': description[:300], 'url': link, 'posted_at': posted_at, 'views': 0, 'comments': 0})
         print(f"  ✅ 디스이즈게임 {len(results)}건 수집")
     except Exception as e:
         print(f"  ⚠️ 디스이즈게임 실패: {e}")
@@ -678,7 +680,7 @@ def crawl():
 
     # 게임 필터 바이패스할 소스 (해당 게임 전용 소스라 필터 불필요)
     # 네이버 API site: 검색 기반 크롤러는 키워드 포함 보장 → 게임필터 바이패스
-    GAME_SOURCE_BYPASS = {'네이버카페', '디시인사이드', '아카라이브', '에펨코리아', '미니맵', '루리웹'}
+    GAME_SOURCE_BYPASS = {'네이버카페', '디시인사이드', '아카라이브', '에펨코리아', '미니맵', '루리웹', '디스이즈게임'}
     skip_game, skip_date, skip_url, skip_db = 0, 0, 0, 0
 
     for keyword in get_all_keywords():
