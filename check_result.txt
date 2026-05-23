@@ -1,44 +1,40 @@
-최근 7일 총 수집: 3573건
+============================================================
+1. 미니맵 API 테스트
+============================================================
+status: 200
+postList 건수: 5
+  첫 번째: title=Looking for 20 TPS(+MOBA) Playtesters in, displayTime=2025-11-19 17:38:29.401
 
-[커뮤니티별]
+============================================================
+2. 디스이즈게임 naver news 링크 구조
+============================================================
+  ❌ originallink: https://www.venturesquare.net/1079487/
+     pubDate: Thu, 30 Apr 2026 22:08:00
+  ❌ originallink: http://www.breaknews.com/1197872
+     pubDate: Mon, 06 Apr 2026 11:54:00
+  ❌ originallink: http://www.breaknews.com/1172825
+     pubDate: Tue, 30 Dec 2025 10:42:00
+  ❌ originallink: https://www.venturesquare.net/1021042
+     pubDate: Mon, 22 Dec 2025 00:03:00
+  ❌ originallink: http://www.breaknews.com/1168151
+     pubDate: Wed, 10 Dec 2025 17:52:00
+
+============================================================
+3. webkr로 thisisgame 시도
+============================================================
+건수: 5
+  link: https://www.thisisgame.com/articles/400745
+  postdate: 
+  link: https://www.thisisgame.com/webzine/nboard/4/2657011?n=135201
+  postdate: 
+  link: https://www.thisisgame.com/webzine/nboard/4/7664556?n=148509
+  postdate: 
+
+최근 2일 수집: 3477건
   네이버카페          : 938건
   인벤             : 741건
-  루리웹            : 550건
   아카라이브          : 510건
+  루리웹            : 506건
   에펨코리아          : 492건
-  디시인사이드         : 337건
-  네이트판           : 5건
-
-[날짜별 (collected_at)]
-  05/16: 11건
-  05/17: 84건
-  05/21: 1건
-  05/22: 90건
-  05/23: 3387건
-
-[키워드별 TOP10]
-  에이펙스 레전드            : 628건
-  배틀그라운드              : 370건
-  이터널리턴               : 366건
-  발로란트                : 365건
-  오버워치2               : 331건
-  리그오브레전드             : 322건
-  아키텍트                : 319건
-  포트나이트               : 316건
-  드림에이지               : 275건
-  알케론                 : 176건
-
-[네이버 API 테스트]
-✅ NAVER_CLIENT_ID: mzehGVoT***
-  [200][5건] 배틀그라운드 site:arca.live
-    →  | 모바일배그 이벤트 답지 - 종합게임 채널
-  [200][5건] 배틀그라운드 site:fmkorea.com
-    →  | 중국 <b>배틀그라운드</b> 최근 핵쟁이들 때문에 생긴 게임 문화 ㄷㄷㄷ...jpg - 
-  [200][5건] 배틀그라운드 site:inven.co.kr
-    →  | <b>배틀그라운드</b> 인벤
-  [200][5건] 배틀그라운드 site:bbs.ruliweb.com
-    →  | 집라인에 신규 지역까지, '<b>배틀그라운드</b>' 미라마 맵 업데이트 인터뷰
-  [200][5건] 배틀그라운드 thisisgame
-    → Thu, 30 Apr 2026 22: | 크래프톤, 역대 최대 실적…IP 수익화 넘어 ‘AI·피지컬 AI’ 확장 시동
-  [200][5건] 배틀그라운드
-    →  | ToTaL 클랜원 모집 ㅣ 30대이상 ㅣ 배린이, 복귀 환영 ㅣ 딜량 X 닉변 X ㅣ디코필
+  디시인사이드         : 286건
+  네이트판           : 4건
