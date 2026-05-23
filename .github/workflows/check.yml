@@ -3,11 +3,16 @@ name: Check Stats
 on:
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   check:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GH_TOKEN }}
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
@@ -74,15 +79,18 @@ jobs:
                           log(f"    → {str(i0.get('postdate') or i0.get('pubDate',''))[:20]} | {i0.get('title','')[:50]}")
                   except Exception as e: log(f"  ❌ {q}: {e}")
 
-          with open("check_result.txt","w") as f: f.write("\n".join(out))
+          with open("check_result.txt","w",encoding="utf-8") as f:
+              f.write("\n".join(out))
           PYEOF
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           NAVER_CLIENT_ID: ${{ secrets.NAVER_CLIENT_ID }}
           NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
-      - uses: actions/upload-artifact@v4
-        with:
-          name: check-result
-          path: check_result.txt
-          retention-days: 1
+      - name: 결과 커밋
+        run: |
+          git config user.email "action@github.com"
+          git config user.name "GitHub Actions"
+          git add check_result.txt
+          git diff --cached --quiet || git commit -m "chore: check result"
+          git push
