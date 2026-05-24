@@ -37,46 +37,47 @@ while True:
 
 print(f"총 {len(all_records)}건 조회 완료\n")
 
-mismatched = []
+# 수정 대상: collected_at - posted_at >= 2일 (명백히 오래된 글)
+# ±1일은 자정 경계 이슈 / days=1 허용 범위이므로 제외
+target = []
 for r in all_records:
     p_date = to_kst_date(r["posted_at"])
     c_date = to_kst_date(r["collected_at"])
-    if p_date and c_date and p_date != c_date:
-        mismatched.append(r)
+    if p_date and c_date:
+        diff = (c_date - p_date).days
+        if diff >= 2:
+            target.append((r, diff))
 
-print(f"날짜 불일치 레코드: {len(mismatched)}건 / 전체 {len(all_records)}건\n")
+print(f"수정 대상 (collected - posted >= 2일): {len(target)}건\n")
 
-by_comm = Counter(r["community"] for r in mismatched)
+by_comm = Counter(r["community"] for r, _ in target)
 print("커뮤니티별:")
 for c, n in by_comm.most_common():
     print(f"  {c:15s}: {n}건")
 
-print("\n날짜 차이 분포 (collected_at - posted_at):")
-diffs = Counter()
-for r in mismatched:
-    d = (to_kst_date(r["collected_at"]) - to_kst_date(r["posted_at"])).days
-    diffs[d] += 1
+diffs = Counter(d for _, d in target)
+print("\n날짜 차이 분포:")
 for d in sorted(diffs.keys()):
     print(f"  +{d}일: {diffs[d]}건")
 
 print("\n샘플 5건:")
-for r in mismatched[:5]:
-    print(f"  [{r['community']}] posted={str(r['posted_at'])[:10]}  collected={str(r['collected_at'])[:10]}")
+for r, d in target[:5]:
+    print(f"  [{r['community']}] posted={str(r['posted_at'])[:10]}  collected={str(r['collected_at'])[:10]}  (diff +{d}일)")
 
 if DRY_RUN:
     print(f"\n[DRY RUN] 업데이트 없음. DRY_RUN=false 로 재실행하면 실제 적용됩니다.")
 else:
-    print(f"\n⚠️  {len(mismatched)}건 collected_at → posted_at 으로 업데이트 시작...")
+    print(f"\n⚠️  {len(target)}건 collected_at → posted_at 으로 업데이트 시작...")
     ok, fail = 0, 0
-    for i, r in enumerate(mismatched):
+    for i, (r, d) in enumerate(target):
         try:
             (supabase.table("community_posts")
              .update({"collected_at": r["posted_at"]})
              .eq("id", r["id"])
              .execute())
             ok += 1
-            if (i + 1) % 200 == 0:
-                print(f"  {i+1}/{len(mismatched)}건 처리 완료...")
+            if (i + 1) % 10 == 0:
+                print(f"  {i+1}/{len(target)}건 처리 완료...")
         except Exception as e:
             fail += 1
             print(f"  FAIL id={r['id']}: {e}")
