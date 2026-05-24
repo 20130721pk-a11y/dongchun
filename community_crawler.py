@@ -266,7 +266,7 @@ def crawl_inven(keyword):
                 except:
                     posted_at = parse_date_safe(str(pub_raw))
             if not posted_at:
-                posted_at = datetime.now(KST).isoformat()  # fallback: 오늘
+                posted_at = None  # postdate 없으면 None → is_recent_day 필터에서 차단
             results.append({'title': title[:100], 'url': link, 'posted_at': posted_at, 'views': 0, 'comments': 0})
         print(f"  ✅ 인벤 {len(results)}건 수집")
     except Exception as e:
@@ -302,9 +302,9 @@ def crawl_ruliweb(keyword):
                     from email.utils import parsedate_to_datetime
                     posted_at = parsedate_to_datetime(str(pub_raw)).isoformat() if pub_raw and '@' not in str(pub_raw) else parse_date_safe(str(pub_raw))
                 except:
-                    posted_at = parse_date_safe(str(pub_raw)) if pub_raw else datetime.now(KST).isoformat()
+                    posted_at = parse_date_safe(str(pub_raw)) if pub_raw else None
                 if not posted_at:
-                    posted_at = datetime.now(KST).isoformat()
+                    posted_at = None
                 results.append({'title': title[:100], 'url': link, 'posted_at': posted_at, 'views': 0, 'comments': 0})
             if results:
                 break
@@ -436,8 +436,6 @@ def crawl_naver_cafe(keyword):
             link = item.get("link", "")
             postdate_raw = item.get("postdate", None)
             posted_at = parse_date_safe(postdate_raw)
-            if not posted_at:
-                posted_at = datetime.now(KST).isoformat()
             dates_seen.append(postdate_raw)
             results.append({'title': title, 'url': link, 'posted_at': posted_at, 'views': 0, 'comments': 0})
         valid_dates = [d for d in dates_seen if d]
@@ -469,9 +467,7 @@ def crawl_arcalive(keyword):
                 continue
             title = re.sub('<[^>]+>', '', item.get("title", ""))
             pub_raw = item.get("postdate") or item.get("pubDate")
-            posted_at = parse_date_safe(str(pub_raw)) if pub_raw else datetime.now(KST).isoformat()
-            if not posted_at:
-                posted_at = datetime.now(KST).isoformat()
+            posted_at = parse_date_safe(str(pub_raw)) if pub_raw else None
             results.append({'title': title[:100], 'url': link, 'posted_at': posted_at, 'views': 0, 'comments': 0})
         results = results[:100]
         print(f"  ✅ 아카라이브 {len(results)}건 수집")
@@ -499,9 +495,7 @@ def crawl_fmkorea(keyword):
                 continue
             title = re.sub('<[^>]+>', '', item.get("title", ""))
             pub_raw = item.get("postdate") or item.get("pubDate")
-            posted_at = parse_date_safe(str(pub_raw)) if pub_raw else datetime.now(KST).isoformat()
-            if not posted_at:
-                posted_at = datetime.now(KST).isoformat()
+            posted_at = parse_date_safe(str(pub_raw)) if pub_raw else None
             results.append({'title': title[:100], 'url': link, 'posted_at': posted_at, 'views': 0, 'comments': 0})
         results = results[:100]
         print(f"  ✅ 에펨코리아 {len(results)}건 수집")
@@ -624,12 +618,9 @@ def crawl_thisisgame(keyword):
             if "thisisgame.com" not in link:
                 continue
             title = _re.sub('<[^>]+>', '', item.get("title", ""))
-            # webkr postdate는 비어있는 경우 많음 → now(KST) fallback
+            # webkr postdate 없으면 None → is_recent_day 필터에서 차단
             postdate = item.get("postdate", "").strip()
-            if postdate and len(postdate) == 8:
-                posted_at = parse_date_safe(postdate)
-            else:
-                posted_at = datetime.now(KST).isoformat()
+            posted_at = parse_date_safe(postdate) if postdate and len(postdate) == 8 else None
             description = _re.sub('<[^>]+>', '', item.get("description", ""))
             results.append({'title': title[:100], 'content': description[:300], 'url': link, 'posted_at': posted_at, 'views': 0, 'comments': 0})
         print(f"  ✅ 디스이즈게임 {len(results)}건 수집")
