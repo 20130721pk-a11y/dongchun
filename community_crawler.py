@@ -436,6 +436,8 @@ def crawl_naver_cafe(keyword):
             link = item.get("link", "")
             postdate_raw = item.get("postdate", None)
             posted_at = parse_date_safe(postdate_raw)
+            if not posted_at:
+                posted_at = datetime.now(KST).isoformat()  # cafearticle은 postdate 없음 → today fallback
             dates_seen.append(postdate_raw)
             results.append({'title': title, 'url': link, 'posted_at': posted_at, 'views': 0, 'comments': 0})
         valid_dates = [d for d in dates_seen if d]
